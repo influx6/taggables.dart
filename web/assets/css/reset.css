@@ -1,0 +1,47 @@
+html,body{
+  height:100%;
+}
+
+*,html *,body *{
+	box-sizing: border-box;
+	-moz-box-sizing: border-box;
+	-webkit-box-sizing: border-box;
+	-o-box-sizing: border-box;
+	padding:0px;
+	margin:0px;
+}
+
+h1,h2,h3,h4,h5,h6{font-size:100%;}
+section,article,header,figure,div,aside,details,figcaption,menu,nav{display:block}
+a,a:hover,a:active,a:focus,a:visited{text-decoration:none;margin:0;padding:0;font-size:100%;color:#000}
+ul,li{list-style-type:none}
+.clear{ clear:both;}
+h1{ font-size: 2.0em; }
+h2{ font-size: 1.5em; }
+h3{ font-size: 1.0em; }
+h4{ font-size: 0.5em; }
+h5{ font-size: 0.3em; }
+h6{ font-size: 0.1em; }
+
+.red{color:red}
+.green{color:green}
+.redbg{background:red}
+.greenbg{background:green}
+.greenborder{border:1px solid green}
+.redborder{border:1px solid red}
+
+h1,h2,h3,h4,h5,h6{font-family:helvetica,sans-serif,serif}
+
+h1 a,h2 a,h3 a,h4 a,h5 a,h6 a,h1 span,
+h2 span,h3 span,h4 span,h5 span,h6 span,h1 em,
+h2 em,h3 em,h4 em,h5 em,h6 em,h1 b,
+h2 b,h3 b,h4 b,h5 b,h6 b{font-family:helvetica,sans-serif,serif}
+
+p,span,a,label,li{font-family:georgia,helvetica,arial,sans-serif,serif}
+
+@font-face{font-family:"Tamil Sangam MN";src:url("./assets/fonts/tamil.ttc") format("truetype")}
+
+.selfExpand{box-sizing:border-box;-webkit-box-sizing:border-box;-o-box-sizing:border-box;-moz-box-sizing:border-box}
+
+
+
