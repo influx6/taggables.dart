@@ -60,6 +60,16 @@ class Funcs{
     };
   }
 
+  static Function tag(String t){
+    return Funcs.tagDefer(Funcs.identity,1)(t);
+  }
+
+  static Function tagDefer(dynamic n,[int m]){
+    return (String tag){
+      return Funcs.tagPrint(tag,n,m);
+    };
+  }
+
   static Function debugOn(String tag,dynamic n){
     return Funcs.tagPrint(tag,Funcs.identity)(n);
   }

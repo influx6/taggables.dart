@@ -1,8 +1,10 @@
 library hub;
 
-import 'dart:mirrors';
 import 'dart:math' as math;
 import 'dart:async';
+
+@MirrorsUsed(targets: const["hub"])
+import 'dart:mirrors';
 
 part 'validators.dart';
 part 'enums.dart';
@@ -13,6 +15,16 @@ part 'extensions.dart';
 
 class Hub{
   
+  static num getHash(dynam n) => n.hashCode;
+
+  static num calHash(Map m,[String j]){
+    j = Funcs.switchUnless(j,'');
+    var hash = [];
+    if(m is Map) m.forEach((v,k){ hash.add(Hub.getHash(k)); });
+    if(m is List) m.forEach((f){ hash.add(Hub.getHash(f)); });
+    return hash.join(j);
+  }
+
   static Map merge(Map a,Map b,{bool override: true}){
     return Enums.merge(a, b, override: override);
   }
@@ -166,18 +178,6 @@ class Hub{
 		return lib.getClass(className);
 	}
 		
-	static SingleLibraryManager singleLibrary(library){
-		return SingleLibraryManager.create(library);
-	}
-	
-	static dynamic findLibrary(library){
-		var ms = currentMirrorSystem();
-		var lib = ms.findLibrary(Hub.encryptSymbol(library));
-		if(lib == null) throw "Unable to find Library: $library";
-		return lib;
-	}
-
-	
 	static void eachAsync(List a,Function iterator,[Function complete]){
     return Enums.eachAsync(a, iterator,complete);
   }

@@ -1,5 +1,6 @@
 library taggables;
 
+// @MirrorsUsed(targets: const[hub],override:"*")
 import 'dart:collection';
 import 'dart:convert';
 import 'package:hub/hubclient.dart';
@@ -113,6 +114,16 @@ class ElementHooks{
 		return this.hooks.get(name).on(n);
 	}
 
+	void bindWhenDone(String name,Function n){
+		if(!this.hooks.has(name)) return null;
+		return this.hooks.get(name).whenDone(n);
+	}
+
+	void unbindWhenDone(String name,Function n){
+		if(!this.hooks.has(name)) return null;
+		return this.hooks.get(name).offWhenDone(n);
+	}
+
 	void bindOnce(String name,Function n){
 		if(!this.hooks.has(name)) return null;
 		return this.hooks.get(name).once(n);
@@ -159,6 +170,8 @@ class DistributedObserver{
 	void bindOnce(Function n) => this.consumers.once(n);
 	void unbind(Function n) => this.consumers.off(n);
 	void unbindOnce(Function n) => this.consumers.offOnce(n);
+	void bindWhenDone(Function n) => this.consumers.whenDone(n);
+	void unbindWhenDone(Function n) => this.consumers.offWhenDone(n);
 
 	void destroy(){
 		this.consumers.free();
@@ -403,16 +416,21 @@ class DistributedManager{
 	void bindHookOnce(String nm,Function n) => this.hooks.bindOnce(nm,n);
 	void unbindHook(String nm,Function n) => this.hooks.unbind(nm,n);
 	void unbindHookOnce(String nm,Function n) => this.hooks.unbindOnce(nm,n);
+	void bindWhenDone(String nm,Function n) => this.hooks.bindWhenDone(nm,n);
+	void unbindWhenDone(String nm,Function n) => this.hooks.unbindWhenDone(nm,n);
 
 
 	void bindMutation(Function n) => this.observer.bind(n);
 	void bindMutationOnce(Function n) => this.observer.bindOnce(n);
 	void unbindMutation(Function n) => this.observer.unbind(n);
 	void unbindMutationOnce(Function n) => this.observer.unbindOnce(n);
+	void bindMutationWhenDone(Function n) => this.observer.bindWhenDone(n);
+	void unbindMutationWhenDone(Function n) => this.observer.unbindWhenDone(n);
 
 	void addHook(String name,[n]) => this.hooks.addHook(name,n);
 	void fireHook(String name,n) => this.hooks.fireHook(name,n);
 	void removeHook(String name) => this.hooks.removeHook(name);
+	dynamic getHook(String name) => this.hooks.getHooks(name);
 
 }
 
@@ -465,6 +483,8 @@ class ElementObservers{
 		this.observer.fireHook(n,a);
 	}
 
+	dynamic getEvent(String n) => this.observer.getHook(n);
+
 	void observeElement(html.Element e,[Map a]){
 		this.element = e;
 		this.observer.observe(this.element,a);
@@ -489,9 +509,10 @@ class ElementObservers{
 	void bindOnce(String name,Function n) => this.observer.bindHookOnce(name,n);
 	void unbind(String name,Function n) => this.observer.unbindHook(name,n);
 	void unbindOnce(String name,Function n) => this.observer.unbindHookOnce(name,n);
+	void bindWhenDone(String nm,Function n) => this.observer.bindWhenDone(nm,n);
+	void unbindWhenDone(String nm,Function n) => this.observer.unbindWhenDone(nm,n);
 
 }
-
 
 class EventFactory{
 	MapDecorator _hidden,factories;
@@ -565,221 +586,6 @@ class EventFactory{
 	}
 }
 
-class Tag extends EventHandler{
-	String tag,tagID,tagNS;
-	Hook observer;
-	Pipe pipe;
-	html.DocumentFragment document;
-	html.Element wrapper,preContent;
-	MapDecorator sharedData;
-	EventFactory factories;
-	bool _ready = false;
-	bool _inprint = false;
-
-	static create(n,m) => new Tag(n,m);
-
-	Tag(dynamic tg,dynamic ob){
-	   if(ob is html.Element){
-	   	 var elem = ob;
-	   	 ob = tg;
-	   	 tg = elem;
-	   }
-
-	  if(ob is Hook) this.observer = hook;
-	  if(ob is TagRegistry) this.observer = Hook.create(ob);
-	  if(tg is String){
-		  this.tag = tg.toLowerCase();
-		  this.wrapper = html.window.document.createElement(this.tag);
-	  }
-	  if(tg is html.Element){
-		  this.wrapper = tg;
-		  this.tag = tg.tagName.toLowerCase();
-	  }
-
-	  if(tg is! html.Element) throw "$tg must be of class ${html.Element}";
-	  if(ob is! Hook && ob is! TagRegistry) throw "$ob must be of class ${TagRegistry} or ${Hook}";
-
-	  this.beforeInit();
-	}
-
-	dynamic query(n,[v]) => Taggables.query(this,n,v);
-
-	dynamic queryAll(n,[v]) => Taggables.queryAll(this,n,v);
-
-	void css(Map m,[String q]){
-		if(Valids.exist(q)) return Taggables.tagCss(this,q,m);
-		return Taggables.cssElem(this.wrapper,m);
-	}
-
-	String get pipeID => this.tagID;
-	String get namespace => this.tagNS;
-
-	void inprint(){
-		if(this._inprint) return;
-		this._inprint = true;
-	}
-
-	bool get inprinted => !!this._inprint;
-
-	MapDecorator get sd => this.sharedData;
-
-	void beforeInit(){
-	  if(!!this._ready) return null;
-	  this._ready = true;
-	  this.factories = EventFactory.create(this);
-	  this.sharedData = MapDecorator.create();
-	  this.document = new html.DocumentFragment();
-
-	  this.tagID = this.wrapper.dataset["pipeid"];
-	  this.tagNS = this.wrapper.dataset["tagns"];
-
-	  this.preContent = new html.Element.tag('content');
-	  this.preContent.children.addAll(this.wrapper.children);
-
-	  if(Valids.exist(this.tagID)){
-		this.tagID = this.tagID.toLowerCase();
-		this.pipe = Pipe.create(this.tagID);
-	  }
-
-	  this.factories.addFactory('updateDOM',(e){
-	  	this.fireEvent('teardownDOM',e);
-		this.wrapper.append(this.document);
-	  });
-
-	  this.factories.addFactory('teardownDOM',(e){
-		// this.wrapper.setInnerHtml("");
-		print("#doc ${this.document.innerHtml}");
-		this.document.remove();
-		print("#doc afterrm ${this.document.innerHtml}");
-	  });
-
-	  this.addEvent('updateDOM');
-	  this.addEvent('teardownDOM');
-
-	  // this.bind('domAdded',this.getFactory('updateDOM'));
-	  // this.bind('domRemoved',this.getFactory('teardownDOM'));
-	  this.bind('updateDOM',this.getFactory('updateDOM'));
-	  this.bind('teardownDOM',this.getFactory('teardownDOM'));
-
-	  this.bindFactory('domReady','updateDOM');
-
-	}
-
-	void init(html.Element parent,[Function n,Maps ops]){
-		this.observer.init(this.wrapper,parent,ops,n);
-	}
-
-	void bind(String name,Function n) => this.observer.bind(name,n);
-	void bindOnce(String name,Function n) => this.observer.bindOnce(name,n);
-	void unbind(String name,Function n) => this.observer.unbind(name,n);
-	void unbindOnce(String name,Function n) => this.observer.unbindOnce(name,n);
-
-	void addFactory(String name,Function n(e)) => this.factories.addFactory(name,n);
-	Function updateFactory(String name,Function n(e)) => this.factories.updateFactory(name,n);
-	Function getFactory(String name) => this.factories.getFactory(name);
-	bool hasFactory(String name) => this.factories.hasFactory(name);
-	void fireFactory(String name,[dynamic n]) => this.factories.fireFactory(name)(n);
-	void bindFactory(String name,String ft) => this.factories.bindFactory(name,ft);
-	void bindFactoryOnce(String name,String ft) => this.factories.bindFactoryOnce(name,ft);
-	void unbindFactory(String name,String ft) => this.factories.unbindFactory(name,ft);
-	void unbindFactoryOnce(String name,String ft) => this.factories.unbindFactoryOnce(name,ft);
-
-	dynamic attr(String n,[dynamic val]){
-		if(Valids.notExist(val)) return this.wrapper.getAttribute(n);
-		return this.wrapper.attributes[n] = val;
-	}
-
-	dynamic data(String n,[dynamic val]){
-		if(Valids.notExist(val)) return this.wrapper.dataset[n];
-		return this.wrapper.dataset[n] = val;
-	}
-
-	void addEvent(staticring n,[Function m]){
-		this.observer.addEvent(n,m);
-	}
-
-	void removeEvent(String n){
-		this.observer.removeEvent(n);
-	}
-
-	void fireEvent(String n,dynamic a){
-		this.observer.fireEvent(n,a);
-	}
-
-	void destroy(){
-	  this._ready = false;
-	  this.observer.destroy();
-	  this.factories.destroy();
-	  this.sharedData.clear();
-	  this.pipe.destroy();
-	  this.sharedData = this.factories = this.document = this.observer = this.tagID = this.tagNS = null;
-	}
-
-	String toString() => "tag#${this.tag} observer#${this.observer.guid}";
-}
-
-class _HookGenerator{
-	DistributedObserver dist;
-
-	_HookGenerator(this.dist);
-
-	Hook create(html.Element e,[Map bp]){
-		return new Hook.withObserver(e,this.dist,bp);
-	}
-}
-
-class Pipe{
-	String id;
-	dynamic pin,pout;
-	dynamic out = Hub.createDistributor('pipe-out');
-
-	static create(String id) => new Pipe(id);
-
-	Pipe(this.id){
-		this.pout = Hub.createDistributor('pipe-out');
-		this.pin = Hub.createDistributor('pipe-in');
-	}
-
-	bool get active => Valids.exist(this.pout) && Valids.exist(this.pin);
-
-	void sendOut(dynamic n){
-		if(!this.active) return null;
-		this.pout.emit(n);
-	}
-
-	void sendIn(dynamic n){
-		if(!this.active) return null;
-		this.pin.emit(n);
-	}
-
-	void recieve(Function m){
-		if(!this.active) return null;
-		this.pin.on(m);
-	}
-
-	void recieveOnce(Function m){
-		if(!this.active) return null;
-		this.pin.once(m);
-	}
-
-	void unrecieve(Function m){
-		if(!this.active) return null;
-		this.pin.off(m);
-	}
-
-	void unrecieveOnce(Function m){
-		if(!this.active) return null;
-		this.pin.offOnce(m);
-	}
-
-	void destroy(){
-		if(!this.active) return null;
-		this.pin.free();
-		this.pout.free();
-		this.pin = this.pout = null;
-	}
-}
-
 class TagNS{
 	final MapDecorator blueprints = MapDecorator.create();
 	String id;
@@ -829,6 +635,8 @@ class TagNS{
 
 	String toString() => this.blueprints.toString();
 
+	List get tags => this.blueprints.core.keys.toList();
+
 }
 
 class TagRegistry{
@@ -849,6 +657,7 @@ class TagRegistry{
 		if(!this.namespace.has(s.toLowerCase())) this.addNS(s);
 		var nsg = this.ns(s);
 		if(Valids.notExist(nsg)) return null;
+		Taggables.defaultValidator.addTag(tag);
 		nsg.register(tag,n);
 	}
 
@@ -896,6 +705,59 @@ class TagRegistry{
 	String toString() => this.namespace.toString();
 }
 
+class DisplayHook{
+	TaskQueue tasks;
+	html.Window w;
+	Switch alive;
+	List<Timers> _repeaters;
+	int _frameid;
+
+	static create(w) => new DisplayHook(w);
+
+	DisplayHook(this.w){
+		this._repeaters = new List<Timers>();
+		this.tasks = TaskQueue.create(false);
+		this.alive = Switch.create();
+		this.tasks.immediate(this._scheduleDistributors);
+		this.alive.switchOn();
+	}
+
+	int get id => this._frameid;
+	
+	void schedule(Function m(int ms)) => this.tasks.queue(m);
+	void scheduleDelay(int msq,Function m(int ms)) => this.tasks.queueAfter(msq,m);
+	void scheduleImmediate(Function m(int ms)) => this.tasks.immediate(m);
+	Timer scheduleEvery(int msq,Function m){
+		var t = this.tasks.queueEvery(msq,m);
+		this._repeaters.add(t);
+		return t;
+	}
+
+	void _scheduleDistributors([n]){
+		this.tasks.queue(this._scheduleDistributors);
+	}
+
+	void emit([int n]){
+		this.tasks.exec(n);
+		this.run();
+	}
+
+	void run(){
+		if(!this.alive.on()) this.alive.switchOn();
+		this._frameid = this.w.requestAnimationFrame((i) => this.emit(i));
+	}
+
+	void stop(){
+		this.alive.switchOff();
+		this.w.cancelAnimationFrame(this._frameid);
+		this._repeaters.forEach((f) => f.cancel());
+		this.tasks.clearJobs();
+	}
+
+	String toString() => "DisplayHook with ${this._frameid}";
+
+}
+
 class Hook{
 	String guid;
 	TagRegistry registry;
@@ -903,8 +765,8 @@ class Hook{
 	DistributedObserver observer;
 	ElementObservers observerManager;
 	MapDecorator loadedTags;
+	DisplayHook display;
 
-	static TagRegistry core = TagRegistry.create();
 
 	static Hook create([n,m]) => new Hook(n,m);
 
@@ -929,14 +791,29 @@ class Hook{
 	}
 
 	Hook([TabRegistry reg,DistributedObserver ob]){
-		this.registry = Funcs.switchUnless(reg,Hook.core);
+		this.registry = Funcs.switchUnless(reg,Taggables.core);
 		this.observer = Funcs.switchUnless(ob,DistributedObserver.create());
 		this.observerManager = ElementObservers.create(this.observer);
 
 		this.guid = Hub.randomString(2,4);
 		this.loadedTags = MapDecorator.create();	
 
+		this.addEvent('__init__');
 		this.addEvent('domReady');
+		this.addEvent('beforedomReady');
+		this.addEvent('afterdomReady');
+
+		this.bindWhenDone("beforedomReady",(e){
+			this.fireEvent('domReady',e);
+		});
+
+		this.bindWhenDone("domReady",(e){
+			this.fireEvent('afterdomReady',e);
+		});
+
+		this.bind('__init__',(e){
+			this.fireEvent('beforedomReady',e);
+		});
 
 		this.observerManager.addEvent('addNodeComplete');
 		this.observerManager.addEvent('rmNodeComplete');
@@ -952,6 +829,7 @@ class Hook{
 		this.observerManager.bind('childRemoved',(e){
 			this.delegateRegistry(e);
 		});
+
 	}
 
 	Hook init(html.Element core,[html.Element parent,Map pops,Function n]){
@@ -969,6 +847,7 @@ class Hook{
 		});
 
 		this.observerManager.observe(this.coreElement,parent:parent,parentOptions:pops,insert:n);
+		this.display = DisplayHook.create(this.coreElement.ownerDocument.window);
 
 		this.afterInit();
 
@@ -977,10 +856,13 @@ class Hook{
 
 	void afterInit(){
 		this.delegateRegistryAdd(this.coreElement.children);
-		this.fireEvent('domReady',true);
+		this.fireEvent('__init__',true);
+		// this.display.run();
 	}
 
-	void addEvent(staticring n,[Function m]){
+	dynamic getEvent(String n) => this.observerManager.getEvent(n);
+
+	void addEvent(String n,[Function m]){
 		this.observerManager.addEvent(n,m);
 	}
 
@@ -1195,34 +1077,281 @@ class Hook{
 		this.loadedTags.clear();
 		this.observerManager.destroy();
 		this.observer.destroy();
+		if(Valids.exist(this.display)) this.display.stop();
 	}
 
 	void bind(String name,Function n) => this.observerManager.bind(name,n);
 	void unbind(String name,Function n) => this.observerManager.unbind(name,n);
 	void bindOnce(String name,Function n) => this.observerManager.bindOnce(name,n);
 	void unbindOnce(String name,Function n) => this.observerManager.unbindOnce(name,n);
+	void bindWhenDone(String nm,Function n) => this.observerManager.bindWhenDone(nm,n);
+	void unbindWhenDone(String nm,Function n) => this.observerManager.unbindWhenDone(nm,n);
+}
+
+class Tag extends EventHandler{
+	bool _ready = false, _inprint = false;
+	String tag,tagNS;
+	MapDecorator sharedData;
+	Hook observer;
+	html.DocumentFragment _liveDoc,_shadowDoc;
+	html.Element wrapper,preContent;
+	EventFactory factories,shadowfactories;
+	DisplayHook display;
+
+	static create(n,m){
+		if(n is html.Element){
+			if(m is Hook) return new Tag.elem(n,hook: m);
+			if(m is TagRegistry) return new Tag.elem(n,registry: m);
+		}
+		if(n is String){
+			if(m is Hook) return new Tag(n,hook: m);
+			if(m is TagRegistry) return new Tag(n,registry: m);
+		}
+	}
+
+	Tag.elem(html.Element tg,{TagRegistry registry: null, Hook hook: null}){
+	  if(Valids.notExist(registry) && Valids.notExist(hook)) throw "supply either a hook or registery please";
+
+	  this.wrapper = tg;
+	  this.tag = tg.tagName.toLowerCase();
+
+	  if(Valids.exist(registry)) this.observer = Hook.create(registry);
+	  else this.observer = hook;
+
+	  Taggables.defaultValidator.addTag(this.wrapper.tagName);
+	  this.beforeInit();
+	}
+
+	Tag(String tg,{TagRegistry registry: null, Hook hook: null}){
+	  if(Valids.notExist(registry) && Valids.notExist(hook)) throw "supply either a hook or registery please";
+
+	  this.tag = tg.toLowerCase();
+	  this.wrapper = Taggables.createElement(this.tag);
+
+	  if(Valids.exist(registry)) this.observer = Hook.create(registry);
+	  else this.observer = hook;
+
+	  Taggables.defaultValidator.addTag(this.wrapper.tagName);
+	  this.beforeInit();
+	}
+
+	String get namespace => this.tagNS;
+	html.DocumentFragment get shadow => this._shadowDoc;
+
+	void inprint(){
+		if(this._inprint) return;
+		this._inprint = true;
+	}
+
+	bool get inprinted => !!this._inprint;
+
+	MapDecorator get sd => this.sharedData;
+
+	void beforeInit(){
+	  if(!!this._ready) return null;
+	  this._ready = true;
+	  this.factories = EventFactory.create(this);
+	  this.shadowfactories = EventFactory.create(this);
+	  this.sharedData = MapDecorator.create();
+	  this._shadowDoc = new html.DocumentFragment();
+	  this._liveDoc = new html.DocumentFragment();
+
+	  this.preContent = new html.Element.tag('content');
+	  this.preContent.children.addAll(this.wrapper.children);
+
+	  this.tagNS = this.wrapper.dataset["ns"];
+
+	  var id = this.hasAttr('id') ? this.attr('id') : this.attr('class');
+	  if(Valids.notExist(id)){ 
+	  	id = "${this.tag}-${Hub.randomString(2,5)}"; 
+	  	this.attr('id',id);
+	  }
+
+	  //open dom update and teardown events for public use
+	  this.addEvent('updateDOM');
+	  this.addEvent('teardownDOM');
+	  //ghost events for internal use;
+	  this.addEvent('_updateLive');
+	  this.addEvent('_teardownLive');
+
+	  this.factories.addFactory('updateDOM',(e){ });
+	  this.factories.addFactory('teardownDOM',(e){});
+
+	  this.shadowfactories.addFactory('liveProc',(e){
+	  	this.fireEvent('updateDOM',e);
+	  });
+
+	  this.shadowfactories.addFactory('updateLive',(e){
+	  	this._liveDoc.setInnerHtml(this.shadow.innerHtml,validator: Taggables.defaultValidator.rules);
+		this.wrapper.append(this._liveDoc);
+	  });
+
+	  this.shadowfactories.addFactory('teardownLive',(e){
+	  	this._liveDoc.remove();
+	  	this.wrapper.setInnerHtml("");
+	  });
+
+	  this.bind('_updateLive',this.shadowfactories.getFactory('updateLive'));
+	  this.bind('_teardownLive',this.shadowfactories.getFactory('teardownLive'));
+	  this.bind('domReady',this.shadowfactories.getFactory('liveProc'));
+
+	  this.bind('updateDOM',this.getFactory('updateDOM'));
+	  this.bind('teardownDOM',this.getFactory('teardownDOM'));
+	  this.bind('domAdded',this.getFactory('updateDOM'));
+	  this.bind('domRemoved',this.getFactory('teardownDOM'));
+
+	  this.bindWhenDone('_teardownLive',(e){
+	  	this.fireEvent("_updateLive",e);
+  	  });
+
+	  this.bindWhenDone('updateDOM',(e){ 
+	  	this.fireEvent('teardownDOM',e);
+  	  });
+
+	  this.bindWhenDone('teardownDOM',(e){ 
+	  	this.fireEvent('_teardownLive',e); 
+	  });
+
+	  this.shadow.setInnerHtml(this.preContent.innerHtml);
+	  this.wrapper.append(this._liveDoc);
+	}
+
+	void init(html.Element parent,[Function n,Maps ops]){
+		this.observer.init(this.wrapper,parent,ops,n);
+		this.display = DisplayHook.create(parent.ownerDocument.window);
+	}
+
+	void bind(String name,Function n) => this.observer.bind(name,n);
+	void bindOnce(String name,Function n) => this.observer.bindOnce(name,n);
+	void unbind(String name,Function n) => this.observer.unbind(name,n);
+	void unbindOnce(String name,Function n) => this.observer.unbindOnce(name,n);
+	void bindWhenDone(String nm,Function n) => this.observer.bindWhenDone(nm,n);
+	void unbindWhenDone(String nm,Function n) => this.observer.unbindWhenDone(nm,n);
+
+	void addFactory(String name,Function n(e)) => this.factories.addFactory(name,n);
+	Function updateFactory(String name,Function n(e)) => this.factories.updateFactory(name,n);
+	Function getFactory(String name) => this.factories.getFactory(name);
+	bool hasFactory(String name) => this.factories.hasFactory(name);
+	void fireFactory(String name,[dynamic n]) => this.factories.fireFactory(name)(n);
+	void bindFactory(String name,String ft) => this.factories.bindFactory(name,ft);
+	void bindFactoryOnce(String name,String ft) => this.factories.bindFactoryOnce(name,ft);
+	void unbindFactory(String name,String ft) => this.factories.unbindFactory(name,ft);
+	void unbindFactoryOnce(String name,String ft) => this.factories.unbindFactoryOnce(name,ft);
+
+	dynamic createElement(String n,[String content]){
+		var elem = Taggables.createElement(n);
+		if(Valids.exist(content)) elem.setInnerHtml(content);
+		Taggables.defaultValidator.addTag(this.wrapper.tagName);
+		this.shadow.append(elem);
+		return elem;
+	}
+
+	dynamic createHtml(String markup){
+		var elem = Taggables.createHtml(markup);
+		print(elem.tagName);
+		Taggables.defaultValidator.addTag(elem.tagName);
+		this.shadow.append(elem);
+		return elem;
+	}
+
+	dynamic query(n,[v]) => Taggables.query(this,n,v);
+
+	dynamic queryAll(n,[v]) => Taggables.queryAll(this,n,v);
+
+	void css(Map m,[String q]){
+		if(Valids.exist(q)) return Taggables.tagCss(this,q,m);
+		return Taggables.cssElem(this.wrapper,m);
+	}
+
+	bool hasAttr(String n) => this.wrapper.attributes.containsKey(n);
+
+	dynamic attr(String n,[dynamic val]){
+		if(Valids.notExist(val)) return this.wrapper.getAttribute(n);
+		return this.wrapper.attributes[n] = val;
+	}
+
+	dynamic data(String n,[dynamic val]){
+		if(Valids.notExist(val)) return this.wrapper.dataset[n];
+		return this.wrapper.dataset[n] = val;
+	}
+
+	dynamic fetchData(String n,Function m){
+		var d = this.data(n);
+		if(Valids.exist(d)) return m(d);
+	}
+
+	void addEvent(staticring n,[Function m]){
+		this.observer.addEvent(n,m);
+	}
+
+	void removeEvent(String n){
+		this.observer.removeEvent(n);
+	}
+
+	void fireEvent(String n,dynamic a){
+		this.observer.fireEvent(n,a);
+	}
+
+	void destroy(){
+	  this._ready = false;
+	  this.observer.destroy();
+	  this.factories.destroy();
+	  this.sharedData.clear();
+	  this.sharedData = this.factories = this.document = this.observer =  this.tagNS = null;
+	  this._shadowDoc = this._liveDoc = null;
+	}
+
+	String toString() => "tag#${this.tag} observer#${this.observer.guid}";
+}
+
+class CustomValidator{
+	html.NodeValidatorBuilder _validator;
+
+	CustomValidator(){
+		this._validator = new html.NodeValidatorBuilder();
+		this.rules.allowSvg();
+		this.rules.allowHtml5();
+		this.rules.allowInlineStyles();
+	}
+
+	void addTag(String n){
+		this.rules.allowElement(n.toLowerCase());
+	}
+
+	dynamic get rules => this._validator;
 }
 
 class Taggables{
 
+	static TagRegistry core = TagRegistry.create();
+	static CustomValidator defaultValidator = new CustomValidator();
+
 	static void tagCss(Tag n,String query,Map m){
-		var core = n.document.querySelectorAll(query);
+		var core = n.shadow.querySelectorAll(query);
 		if(Valids.notExist(core) || core.isEmpty) return null;
 		core.forEach((f){
 			Taggables.cssElem(f,m);
 		});
 	}
 
-	static dynamic query(Tag n,String query,[Function v]){
-		var q = n.document.querySelector(query);
+	static dynamic queryElem(html.Element d,String query,[Function v]){
+		var q = d.querySelector(query);
 		if(Valids.exist(q) && Valids.exist(v)) v(q);
 		return q;
 	}
 
-	static dynamic queryAll(Tag n,String query,[Function v]){
-		var q = n.document.querySelectorAll(query);
+	static dynamic queryAllElem(html.Element d,String query,[Function v]){
+		var q = d.querySelectorAll(query);
 		if(Valids.exist(q) && Valids.exist(v)) v(q);
 		return q;
+	}
+
+	static dynamic query(Tag n,String query,[Function v]){
+		return Taggables.queryElem(n.shadow,query,v);
+	}
+
+	static dynamic queryAll(Tag n,String query,[Function v]){
+		return Taggables.queryAllElem(n.shadow,query,v);
 	}
 
 	static void cssElem(html.Element n,Map m){
@@ -1230,4 +1359,14 @@ class Taggables{
 			n.style.setProperty(k,v);
 		});
 	}
+
+	static html.Element createElement(String n){
+		Taggables.defaultValidator.addTag(n);
+		return html.window.document.createElement(n);
+	}
+
+	static html.Element createHtml(String n){
+		return new html.Element.html(n,validator: Taggables.defaultValidator.rules);
+	}
 }
+

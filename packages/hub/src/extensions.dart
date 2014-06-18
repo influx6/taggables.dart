@@ -4,6 +4,24 @@ Function _empty(t,s){}
 var _smallA = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"];
 var _bigA = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
 
+class Log{
+  Function _flip,_factori;
+
+  static create() => new Log();
+
+  Log(){
+    this._flip = Funcs.futureBind();
+    this._factori = Funcs.defferedDebugLog(this._flip);
+  }
+
+  Function get make => this._factori;
+  Function get flip => this._flip;
+
+  void get enable => this._flip(true);
+  void get disable => this._flip(false);
+  bool get state => this._flip();
+
+}
 
 abstract class Comparable{
   bool compare(dynamic d);
@@ -207,8 +225,7 @@ class Switch{
 class Distributor<T>{
   List<Function> listeners = new List<Function>();
   final done = new List<Function>();
-  final once = new List<Function>();
-  final _removal = new List<Function>();
+  final oncer = new List<Function>();
   final Switch _switch = Switch.create();
   String id;
   bool _locked = false;
@@ -217,11 +234,13 @@ class Distributor<T>{
 
   Distributor(this.id);
   
-  void onOnce(Function n){
-    if(this.once.contains(n)) return;
-    this.once.add(n);     
+  void onOnce(Funcion n){
+    if(this.oncer.contains(n)) return;
+    this.oncer.add(n);     
   }
   
+  void once(n) => this.onOnce(n);
+
   void on(Function n){
     if(this.listeners.contains(n)) return;
     this.listeners.add(n);
@@ -230,29 +249,23 @@ class Distributor<T>{
   void whenDone(Function n){
     if(!this.done.contains(n)) this.done.add(n);
   }
+
+  dynamic offWhenDone(Function n){
+    return this.done.remove(n);
+  }
   
   dynamic off(Function m){
-    if(!!this._switch.on()){
-      return this._removal.add((j){
-        return this.listeners.remove(m);
-      });
-    }
     return this.listeners.remove(m);
   }
 
   dynamic offOnce(Function n){
-    if(!!this._switch.on()){
-      return this._removal.add((j){
-        return this.once.remove(m);
-      });
-    }
-    return this.once.remove(m);
+    return this.oncer.remove(m);
   }
   
   void free(){
     this.freeListeners();
     this.done.clear();
-    this.once.clear();
+    this.oncer.clear();
   }
 
   void freeListeners(){
@@ -268,25 +281,21 @@ class Distributor<T>{
   void fireListeners(T n){
     if(this.listeners.length <= 0) return;
     
-    this._switch.switchOn();
     Hub.eachAsync(this.listeners,(e,i,o,fn){
       e(n);
-      fn(null);
+      return fn(null);
     },(o,err){
       this.fireDone(n);
-      this._switch.switchOff();
-      this._fireRemoval(n);
     });   
   }
  
   void fireOncers(T n){
-    if(this.once.length <= 0) return null;
-    Hub.eachAsync(this.once,(e,i,o,fn){
+    if(this.oncer.length <= 0) return null;
+    Hub.eachAsync(this.oncer,(e,i,o,fn){
       e(n);
-      fn(null);
-    },(o,err){
+      return fn(null);
     });
-    this.once.clear();
+    this.oncer.clear();
   }
   
   void fireDone(T n){
@@ -297,14 +306,6 @@ class Distributor<T>{
     });
   }
   
-  void _fireRemoval([T n]){
-    if(this._removal.length <= 0 || this._switch.on()) return;
-    Hub.eachAsync(this._removal,(e,i,o,fn){
-      e(n);
-      fn(null);
-    });
-  }
-
   bool get hasListeners{
     return (this.listeners.length > 0);
   }
@@ -476,11 +477,25 @@ class MapDecorator{
     MapDecorator.from(Map a): storage = new Map.from(a);
 
     MapDecorator.use(Map a): storage = a;
+
+    MapDecorator.unique(Map a): storage = Enums.deepClone(a);
       
     dynamic get(String key){
       if(this.has(key)) return this.storage[key];
     }
-              
+    
+    void addAll(MapDecorator m){
+      m.onAll((n,k){
+        this.add(n,k);
+      });
+    }
+
+    void updateAll(MapDecorator m){
+      m.onAll((n,k){
+        this.update(n,k);
+      });
+    }
+
     void add(String key,dynamic val){
       if(this.has(key)) return null;
       this.storage[key] = val;
@@ -530,80 +545,12 @@ class MapDecorator{
     int get valuesLength => this.storage.values.toList().length;
     int get length => this.storage.length;
 
+    bool get isEmpty => this.storage.isEmpty;
+
+    Map get core => this.storage;
+
 }
 
-class SingleLibraryManager{
-  Symbol tag;
-  final ms = currentMirrorSystem();
-  LibraryMirror library;
-  
-  static create(String n,[LibraryMirror lib]){
-    if(lib != null) return new SingleLibraryManager.use(n,lib);
-    return new SingleLibraryManager(n);
-  }
-  
-  SingleLibraryManager(name){
-    this.tag = Hub.encryptSymbol(name); 
-    this._initLibrary();
-  }
-  
-  SingleLibraryManager.use(name,LibraryMirror lib){
-    this.tag = Hub.encryptSymbol(name);
-    this.library = lib;
-  }
-  
-  void _initLibrary(){
-    try{
-      var lib = this.ms.findLibrary(this.tag);
-      if(lib == null) throw "Unable to find Library: ${Hub.decryptSymbol(this.tag)}";
-      //this.library = lib.single;
-    }catch(e){
-      throw "Library Not Found ${this.tag}";
-    }
-  }
-  
-  bool matchClassWithInterface(String className,String interfaceName){
-    var simpleIName = Hub.encryptSymbol(interfaceName);
-    var cl = this.getClass(className);
-    if(cl == null) return false;
-    var  ci = cl.superinterfaces;
-    for(var n in ci){
-      if(n.simpleName != simpleIName) continue;
-      return true;
-    }
-    return false;
-  }
-    
-  dynamic getClass(String name){
-    return this.library.declarations[Hub.encryptSymbol(name)];
-  }
-  
-  dynamic getSetter(String name){
-    return this.library.declarations[Hub.encryptSymbol(name)];
-  }
-    
-  dynamic getGetter(String name){
-    return this.library.declarations[Hub.encryptSymbol(name)];  
-  }
-  
-  dynamic getFunction(String name){
-    return this.library.declarations[Hub.encryptSymbol(name)];
-  }
-    
-  dynamic getVariable(String name){
-    return this.library.declarations[Hub.encryptSymbol(name)];
-  }
-  
-  Map getAllMembers(String name){
-    return this.library.topLevelMembers;
-  }
-      
-  dynamic createClassInstance(String name,{String constructor: null,List pos:null,Map<Symbol,dynamic> named:null}){
-    var cm = this.getClass(name);
-    return cm.newInstance((constructor == null ? name : constructor), pos,named);
-  }
-  
-}
 
 class Counter{
   int _count = 0;
@@ -760,4 +707,223 @@ class StateManager{
     
     bool get isReady => this.current != null;
     
+}
+
+class DurationMixin {
+  dynamic incMillisFn(Duration n,int m) => new Duration(milliseconds: n.inMilliseconds + m);
+  dynamic incMacrosFn(Duration n,int m) => new Duration(microseconds: n.inMicroseconds + m);
+  dynamic decMillisFn(Duration n,int m) => new Duration(milliseconds: n.inMilliseconds - m);
+  dynamic decMacrosFn(Duration n,int m) => new Duration(microseconds: n.inMicroseconds - m);
+}
+
+abstract class Queueable<T>{
+  void queue(T n);
+  void dequeueAt(int i);
+  void dequeueFirst();
+  void dequeueLast();
+  void exec();
+  void halt();
+  void immediate();
+}
+
+class TaskQueue extends Queueable with DurationMixin{
+  bool _auto,_halt = false,_lock = false,_forceSingleRun = false;
+  Timer _timer;
+  List tasks;
+  List microtasks;
+  Duration _queueDelay;
+
+  static create([n]) => new TaskQueue(n);
+
+  TaskQueue([auto]){
+    this._auto = Funcs.switchUnless(auto,true);
+    this.tasks = new List<Function>();
+    this.microtasks = new List<Function>();
+    this._queueDelay = Duration.ZERO;
+  }
+
+  void queue(Function n(m)){
+    if(this.locked) return null;
+    this.tasks.add(n);
+    return ((!this.singleRun && this.waiting && this.auto) ? this.exec() : null);
+  }
+  void queueAfter(int ms,Function n(m)){
+    new Timer(new Duration(milliseconds:ms),(){ this.queue(n); });
+  }
+  
+  Timer queueEvery(int ms,Function n(m)){
+    return new Timer.periodic(new Duration(milliseconds:ms),(t){ this.queue(n); });
+  }
+
+  dynamic dequeueAt(int i) => !this.locked && this.tasks.removeAt(i);
+  dynamic dequeueFirst() => this.dequeueAt(0);
+  dynamic dequeueLast() => this.dequeueAt(this.tasks.length - 1);
+
+  void delay(int ms) => this._queueDelay = new Duration(milliseconds: ms);
+  void incDelay(int ms) => this.incMillisFn(this._queueDelay,ms);
+  void decDelay(int ms) => this.decMillisFn(this._queueDelay,ms);
+  void forceSingleRun() => this._forceSingleRun = true;
+  void disableSingleRun() => this._forceSingleRun = false;
+
+  bool get locked => !!this._lock;
+  bool get empty => this.tasks.isEmpty && this.microtasks.isEmpty;
+  bool get waiting => !this.empty;
+  bool get auto => !!this._auto;
+  bool get halted => !!this._halt;
+  bool get singleRun => !!this._forceSingleRun;
+
+  int get totalJobs => this.tasks.length + this.microtasks.length;
+  int get totalTasks => this.tasks.length;
+  int get totalMicrotasks => this.microtasks.length;
+
+  void _handleTasks(List cur,int n,[dynamic val]){
+    if(cur.length <= n) return null;
+    return cur.removeAt(n)(val);
+  }
+
+  void immediate(Function n(m)){
+    if(this.locked) return null;
+    this.microtasks.add(n);
+  }
+
+  void immediateFor(int i){
+    if(this.locked) return null;
+    if(this.tasks.isEmpty || this.tasks.length <= i) return null;
+    var cur = this.tasks.removeAt(i);
+    this.microtasks.add(cur);
+  }
+
+  void downgrade(int n){
+    if(this.locked) return null;
+    if(this.microtasks.isEmpty || this.microtasks.length <= n) return null;
+    this.tasks.add(this.microtasks.removeAt(n));
+  }
+
+  void repeat(int n){
+    if(this.locked) return null;
+    if(this.tasks.isEmpty || this.tasks.length <= n) return null;
+    this.tasks.add(this.tasks.elementAt(n));
+  }
+
+  void repeatImmediate(int n){
+    if(this.locked) return null;
+    if(this.microtasks.isEmpty || this.microtasks.length <= n) return null;
+    this.microtasks.add(this.microtasks.elementAt(n));
+  }
+
+  int taskIndex(Function n) => this.tasks.indexOf(n);
+  int microtaskIndex(Function n) => this.microtasks.indexOf(n);
+
+  void exec([dynamic v]){
+    if(this.empty || this.locked || this.halted) return null;
+    this._timer = new Timer(this._queueDelay,(){
+      this._handler(v);
+      if(!this.singleRun) this.exec(v);
+    });
+  }
+
+  void _handler([v]){
+      if((this.tasks.length <= 0 && this.microtasks.length <= 0)) return null;
+      if(this.microtasks.length > 0) this._handleTasks(this.microtasks,0,v);
+      else this._handleTasks(this.tasks,0,v);
+      this.end();
+  }
+
+  void halt(){
+    this._halt = true;
+  }
+
+  void unhalt(){
+    this._halt = false;
+  }
+
+  void end(){
+    this._timer.cancel();
+    this._timer = null;
+  }
+
+  void clearMicrotasks(){
+    this.halt();
+    this.microtasks.clear();
+    this.unhalt();
+  }
+
+  void clearTasks(){
+    this.halt();
+    this.tasks.clear();
+    this.unhalt();
+  }
+
+  void clearJobs(){
+    this.clearMicrotasks();
+    this.clearTasks();
+  }
+
+  void destroy(){
+    this.end();
+    this._queueDelay = null;
+  }
+
+  void forceUnlock(){
+    this._lock = false;
+  }
+
+  void reset(){
+    this._halt = false;
+    this.disableSingleRun();
+    this.forceUnlock();
+  }
+}
+
+
+class Pipe{
+  String id;
+  dynamic pin,pout;
+  dynamic out = Hub.createDistributor('pipe-out');
+
+  static create(String id) => new Pipe(id);
+
+  Pipe(this.id){
+    this.pout = Hub.createDistributor('pipe-out');
+    this.pin = Hub.createDistributor('pipe-in');
+  }
+
+  bool get active => Valids.exist(this.pout) && Valids.exist(this.pin);
+
+  void sendOut(dynamic n){
+    if(!this.active) return null;
+    this.pout.emit(n);
+  }
+
+  void sendIn(dynamic n){
+    if(!this.active) return null;
+    this.pin.emit(n);
+  }
+
+  void recieve(Function m){
+    if(!this.active) return null;
+    this.pin.on(m);
+  }
+
+  void recieveOnce(Function m){
+    if(!this.active) return null;
+    this.pin.once(m);
+  }
+
+  void unrecieve(Function m){
+    if(!this.active) return null;
+    this.pin.off(m);
+  }
+
+  void unrecieveOnce(Function m){
+    if(!this.active) return null;
+    this.pin.offOnce(m);
+  }
+
+  void destroy(){
+    if(!this.active) return null;
+    this.pin.free();
+    this.pout.free();
+    this.pin = this.pout = null;
+  }
 }

@@ -1,0 +1,25 @@
+part of hub;
+
+class Valids{
+
+  @deprecated
+  static bool iS(n,m) => match(n,m);
+  
+  static match(n,m){ return !!(n == m); }  
+  static bool not(bool m){ return !m; }
+  static Function isNot = Funcs.compose(Valids.not,Valids.match,2);
+  static bool instanceOf(n,m) => n is m;
+  static bool isString(a) => a is String;
+  static bool isNum(a) => a is num;
+  static bool isInt(a) => a is int;
+  static bool isBool(a) => a is bool;
+  static bool isFunction(a) => a is Function;
+  static bool isMap(a) => a is Map;
+  static bool isList(a) => a is List;
+  static bool exist(a) => !Valids.iS(a,null);
+  static bool notExist => Funcs.compose(Valids.not,Valids.exist);
+  static Function isTrue = (a){ return (Valids.isBool(a) && a == true); };
+  static Function isFalse = (a){ return (Valids.isBool(a) && a == false); };
+
+  
+}

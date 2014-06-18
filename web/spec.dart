@@ -1,43 +1,48 @@
 library taggables.specs;
 
 import 'dart:html';
+import 'dart:async';
 import 'package:taggables/taggables.dart';
 import 'package:hub/hubclient.dart';
 
 void main(){
 
-	Hook.core.register('dashboards','expando-text',(tag,init){
+	Taggables.core.register('dashboards','dashboard-header',(tag,init){
 
-		init();
-	});
 
-	Hook.core.register('dashboards','dashboard-header',(tag,init){
-
-		var span = new Element.html('<span>${tag.data("title")}</span>');
-		tag.document.append(span);
-
+			//still a bad idea for inline styles
 		tag.css({
 			'display':'block',
-			'color': '#000'
+			'background': 'rgba(0,0,0,0.7)',
+			'overflow': 'hidden',
+			'width':'200px',
+			'height': '30px',
+			'padding': '0px 0px 0px 10px',
+			'box-sizing':'border-box',
+			'-moz-box-sizing':'border-box',
+			'-webkit-box-sizing':'border-box',
 		});
 
-		// tag.css({
-		// 	'display':'block',
-		// 	'width':'100%',
-		// 	'height':'100%'
-		// },'pre');
-
-		tag.updateFactory('updateDOM',(e){
-			tag.fireEvent('teardownDOM',true);
-			tag.document.append(span);
-			tag.wrapper.append(tag.document);
+		tag.bind('beforedomReady',(e){
+			tag.createElement("span",tag.data('title'));
+			//still a bad idea for inline styles
+			// tag.css({
+			// 	'display':'block',
+			// 	'width':'90%',
+			// 	'height':'100%',
+			// 	'color': 'rgba(255,255,255,1)',
+			// 	'font-size': '1.5em',
+			// 	'font-style': 'uppercase'
+			// },'span');
 		});
 
 		tag.addFactory('titleUpdate',(e){
 			tag.query('span',(s){
-				s.setInnerHtml(tag.data('title'));
+				tag.fetchData('title',(d){
+					s.setInnerHtml(d);
+				});
+				tag.fireEvent('updateDOM',true);
 			});
-			tag.fireEvent('updateDOM',true);
 		});
 
 		tag.bindFactory('attributeChange','titleUpdate');
@@ -48,6 +53,5 @@ void main(){
 	Hook.bindWith(null,null,(doc,init){
 		init();
 	});
-
 
 }
