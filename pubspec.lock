@@ -2,11 +2,15 @@
 # See http://pub.dartlang.org/doc/glossary.html#lockfile
 packages:
   atomic:
+    description: atomic
+    source: hosted
+    version: "0.0.3"
+  bass:
     description:
-      path: "..\\atomic"
+      path: "..\\bass"
       relative: true
     source: path
-    version: "0.0.1"
+    version: "0.0.4"
   browser:
     description: browser
     source: hosted
@@ -16,4 +20,4 @@ packages:
       path: "..\\hub"
       relative: true
     source: path
-    version: "0.8.6"
+    version: "0.8.8"

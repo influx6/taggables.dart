@@ -6,3 +6,10 @@ description: a derivative implementation of x-tag components in dart with a few 
 dependencies:
     browser: any
     hub: any
+    bass: any
+    atomic: any
+dependency_overrides:
+    hub:
+      path: ../hub
+    bass:
+      path: ../bass

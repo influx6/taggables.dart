@@ -1,10 +1,32 @@
 library taggables;
 
-// @MirrorsUsed(targets: const[hub],override:"*")
 import 'dart:collection';
 import 'dart:convert';
+import 'package:bass/bass.dart';
 import 'package:hub/hubclient.dart';
 import 'dart:html' as html;
+
+class CustomValidator{
+	html.NodeValidatorBuilder _validator;
+
+	CustomValidator(){
+		this._validator = new html.NodeValidatorBuilder();
+		this.rules.allowSvg();
+		this.rules.allowHtml5();
+		this.rules.allowInlineStyles();
+		this.rules.allowTextElements();
+		this.rules.allowTemplating();
+		this.rules.allowElement('script',attributes:['id','data','rel']);
+		this.rules.allowElement('link',attributes:['id','data','rel']);
+		this.rules.allowElement('script',attributes:['id','data','rel']);
+	}
+
+	void addTag(String n){
+		this.rules.allowElement(n.toLowerCase());
+	}
+
+	dynamic get rules => this._validator;
+}
 
 abstract class EventHandler{
 	void bind(String name,Function n);
@@ -330,7 +352,6 @@ class DistributedMutation extends DistributedObserver{
 
 	String toString() => this.observer;
 }
-
 
 class DistributedManager{
 	DistributedObserver observer;
@@ -837,6 +858,7 @@ class Hook{
 		// 	return throw "Hook binding element must already have been added to the dom before using it";
 
 		this.coreElement = core;
+		// this.style = Taggables.create('style');
 		parent = Funcs.switchUnless(parent,this.coreElement.parent);
 		pops = Funcs.switchUnless(pops,{
 			'childList':true,
@@ -849,6 +871,7 @@ class Hook{
 		this.observerManager.observe(this.coreElement,parent:parent,parentOptions:pops,insert:n);
 		this.display = DisplayHook.create(this.coreElement.ownerDocument.window);
 
+		// this.style.attributes['id'] = 
 		this.afterInit();
 
 		return this;
@@ -918,7 +941,7 @@ class Hook{
 
 	void manufactureTag(html.Element tag,Function n){
 		var tagName = tag.tagName.toLowerCase();
-		var nsm = tag.dataset['tagns'];
+		var nsm = tag.dataset['ns'];
 
 		if(Valids.notExist(nsm)) return this.registry.findProvider(tagName,(ns){
 			this._handleManufacturing(ns.createTag(tagName,this.registry,tag),n);
@@ -1094,9 +1117,12 @@ class Tag extends EventHandler{
 	MapDecorator sharedData;
 	Hook observer;
 	html.DocumentFragment _liveDoc,_shadowDoc;
-	html.Element wrapper,preContent;
+	html.Element wrapper,preContent,style;
 	EventFactory factories,shadowfactories;
 	DisplayHook display;
+	BassNS css;
+	BassFormatter cssf;
+
 
 	static create(n,m){
 		if(n is html.Element){
@@ -1156,6 +1182,7 @@ class Tag extends EventHandler{
 	  this._shadowDoc = new html.DocumentFragment();
 	  this._liveDoc = new html.DocumentFragment();
 
+	  this.style = Taggables.createElement('style');
 	  this.preContent = new html.Element.tag('content');
 	  this.preContent.children.addAll(this.wrapper.children);
 
@@ -1167,6 +1194,12 @@ class Tag extends EventHandler{
 	  	this.attr('id',id);
 	  }
 
+	  this.css = Bass.NS(id);
+	  this.cssf = this.css.css();
+	  this.style.attributes['id'] = id;
+	  this.style.dataset['tag-id'] = this.tag;
+	  this.style.attributes['type'] = 'text/css';
+
 	  //open dom update and teardown events for public use
 	  this.addEvent('updateDOM');
 	  this.addEvent('teardownDOM');
@@ -1177,12 +1210,17 @@ class Tag extends EventHandler{
 	  this.factories.addFactory('updateDOM',(e){ });
 	  this.factories.addFactory('teardownDOM',(e){});
 
+	  this.cssf.bind((m){
+	  		this.style.children.clear();
+	  		this.style.text = m;
+	  });
+
 	  this.shadowfactories.addFactory('liveProc',(e){
 	  	this.fireEvent('updateDOM',e);
 	  });
 
 	  this.shadowfactories.addFactory('updateLive',(e){
-	  	this._liveDoc.setInnerHtml(this.shadow.innerHtml,validator: Taggables.defaultValidator.rules);
+	  	this._liveDoc.setInnerHtml(this.shadow.innerHtml);
 		this.wrapper.append(this._liveDoc);
 	  });
 
@@ -1206,6 +1244,7 @@ class Tag extends EventHandler{
 
 	  this.bindWhenDone('updateDOM',(e){ 
 	  	this.fireEvent('teardownDOM',e);
+	  	this.css.compile();
   	  });
 
 	  this.bindWhenDone('teardownDOM',(e){ 
@@ -1217,6 +1256,8 @@ class Tag extends EventHandler{
 	}
 
 	void init(html.Element parent,[Function n,Maps ops]){
+		var head = parent.ownerDocument.query('head');
+		head.insertBefore(this.style,head.firstChild);
 		this.observer.init(this.wrapper,parent,ops,n);
 		this.display = DisplayHook.create(parent.ownerDocument.window);
 	}
@@ -1248,7 +1289,6 @@ class Tag extends EventHandler{
 
 	dynamic createHtml(String markup){
 		var elem = Taggables.createHtml(markup);
-		print(elem.tagName);
 		Taggables.defaultValidator.addTag(elem.tagName);
 		this.shadow.append(elem);
 		return elem;
@@ -1257,11 +1297,6 @@ class Tag extends EventHandler{
 	dynamic query(n,[v]) => Taggables.query(this,n,v);
 
 	dynamic queryAll(n,[v]) => Taggables.queryAll(this,n,v);
-
-	void css(Map m,[String q]){
-		if(Valids.exist(q)) return Taggables.tagCss(this,q,m);
-		return Taggables.cssElem(this.wrapper,m);
-	}
 
 	bool hasAttr(String n) => this.wrapper.attributes.containsKey(n);
 
@@ -1304,24 +1339,11 @@ class Tag extends EventHandler{
 	String toString() => "tag#${this.tag} observer#${this.observer.guid}";
 }
 
-class CustomValidator{
-	html.NodeValidatorBuilder _validator;
-
-	CustomValidator(){
-		this._validator = new html.NodeValidatorBuilder();
-		this.rules.allowSvg();
-		this.rules.allowHtml5();
-		this.rules.allowInlineStyles();
-	}
-
-	void addTag(String n){
-		this.rules.allowElement(n.toLowerCase());
-	}
-
-	dynamic get rules => this._validator;
-}
 
 class Taggables{
+
+	// static Bass css = Bass.B;
+	// static RuleSet bassRules = Bass.R;
 
 	static TagRegistry core = TagRegistry.create();
 	static CustomValidator defaultValidator = new CustomValidator();
@@ -1367,6 +1389,18 @@ class Taggables{
 
 	static html.Element createHtml(String n){
 		return new html.Element.html(n,validator: Taggables.defaultValidator.rules);
+	}
+
+	static html.Element liquify(html.Element n){
+		var b = Taggables.createElement('liquid');
+		b.setInnerHtml(n.innerHtml,validator: Taggables.defaultValidator.rules);
+		return b;
+	}
+
+	static String deliquify(html.Element l,html.Element hold){
+		if(l.tagName.toLowerCase() == 'liquid'){
+			hold.setInnerHtml(l.innerHtml,validator: Taggables.defaultValidator.rules);
+		}
 	}
 }
 

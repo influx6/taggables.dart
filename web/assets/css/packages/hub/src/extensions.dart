@@ -5,11 +5,36 @@ var _smallA = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", 
 var _bigA = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
 
 class Log{
+  Function _flip,factori;
+  String format;
+
+  static create([n,p,f]) => new Log(n,p,f);
+
+  Log([Function p,Function cs,String format]){
+    this.format = format;
+    this._flip = Funcs.futureBind();
+    this.factori = Funcs.tagDeferable(this._flip,p,cs);
+  }
+
+  Function log(String t,dynamic v,[String f]){
+    f = Funcs.switchUnless(f,this.format);
+    return this.factori(t,v,f);
+  }
+
+  Function get flip => this._flip;
+
+  void get enable => this._flip(true);
+  void get disable => this._flip(false);
+  bool get state => this._flip();
+
+}
+
+class WrapperLog{
   Function _flip,_factori;
 
-  static create() => new Log();
+  static create() => new WrapperLog();
 
-  Log(){
+  WrapperLog(){
     this._flip = Funcs.futureBind();
     this._factori = Funcs.defferedDebugLog(this._flip);
   }
@@ -487,6 +512,12 @@ class MapDecorator{
     void addAll(MapDecorator m){
       m.onAll((n,k){
         this.add(n,k);
+      });
+    }
+
+    void updateAllFrom(Map m){
+      m.forEach((n,k){
+        this.update(n,k);
       });
     }
 
