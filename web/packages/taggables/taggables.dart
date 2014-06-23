@@ -128,7 +128,13 @@ class ElementHooks{
 
 	void fireHook(String name,dynamic n){
 		if(!this.hooks.has(name)) return null;
-		return this.hooks.get(name).emit(n);
+		if(!Valids.exist(this.element))
+			return this.hooks.get(name).emit(n);
+		var phase = n is html.CustomEvent ? n.eventPhase : null;
+		var e = (n is html.CustomEvent ? (n.eventPhase < 2 ? n : 
+			new html.CustomEvent(name,detail: n.detail)) 
+			: new html.CustomEvent(name,detail: n));
+		return this.element.dispatchEvent(e);
 	}
 
 	void bind(String name,Function n){
@@ -370,24 +376,26 @@ class DistributedManager{
 
 		this.observer.bind((n){
 
-			var type = n.type.toLowerCase();
+			var m = n;
+			if(n is html.CustomEvent) m = n.detail;
+			var type = m.type.toLowerCase();
 			Funcs.when(Valids.match(type,'attributes'),(){
 
-				if(Valids.exist(n.attributeName)){
-					this.hooks.fireHook(this.hasAttribute(n.attributeName) 
+				if(Valids.exist(m.attributeName)){
+					this.hooks.fireHook(this.hasAttribute(m.attributeName) 
 						? 'attributeChange' : 'attributeRemoved',n);
 				}
 
-				if(Valids.exist(n.attributeNamespace)){
-					this.hooks.fireHook(this.hasAttributeNS(n.attributeNamespace) 
+				if(Valids.exist(m.attributeNamespace)){
+					this.hooks.fireHook(this.hasAttributeNS(m.attributeNamespace) 
 						? 'attributeChange' : 'attributeRemoved',n);
 				}
 
 			});
 
 			Funcs.when(Valids.match(type,'childlist'),(){
-				if(n.addedNodes.length > 0) return this.hooks.fireHook('childAdded',n);
-				if(n.removedNodes.length > 0) return this.hooks.fireHook('childRemoved',n);
+				if(m.addedNodes.length > 0) return this.hooks.fireHook('childAdded',n);
+				if(m.removedNodes.length > 0) return this.hooks.fireHook('childRemoved',n);
 			});
 
 		});
@@ -474,12 +482,14 @@ class ElementObservers{
 		this.observer.addHook('parentAdded');
 
 		this.parentObserver.bindHook('childAdded',(n){
-			if(Enums.filterItem(n.addedNodes,this.element).length > 0)
+			// n = n.detail;
+			if(Enums.filterItem(n.detail.addedNodes,this.element).length > 0)
 				return this.observer.fireHook('domAdded',n);
 		});
 
 		this.parentObserver.bindHook('childRemoved',(n){
-			if(Enums.filterItem(n.removedNodes,this.element).length > 0)
+			// n = n.detail;
+			if(Enums.filterItem(n.detail.removedNodes,this.element).length > 0)
 				return this.observer.fireHook('domRemoved',n);
 		});
 
@@ -1005,8 +1015,8 @@ class Hook{
 
 	void delegateRegistry(event){
 		if(this.coreElement != event.target) return null;
-		if(event.addedNodes.length > 0) this.delegateRegistryAdd(event.addedNodes,event);
-		if(event.removedNodes.length > 0) this.delegateRegistryRemove(event.removedNodes,event);
+		if(event.detail.addedNodes.length > 0) this.delegateRegistryAdd(event.detail.addedNodes,event);
+		if(event.detail.removedNodes.length > 0) this.delegateRegistryRemove(event.detail.removedNodes,event);
 	}
 
 	dynamic addTag(Tag tag,[Function cm]){

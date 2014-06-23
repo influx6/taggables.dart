@@ -158,7 +158,7 @@ class Hub{
      /*  Hub.quickSort(a, (lower + 1), (last - lower), compare);*/
      /*  */
      /*  return a;*/
-      return Enums.heapSort(List a,compare,first,size);
+      return Enums.heapSort(a,compare,first,size);
   }
   
   static bool classMirrorInvokeNamedSupportTest(){

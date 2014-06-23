@@ -8,8 +8,8 @@ dependencies:
     hub: any
     bass: any
     atomic: any
-dependency_overrides:
-    hub:
-      path: ../hub
-    bass:
-      path: ../bass
+#dependency_overrides:
+#    hub:
+#      path: ../hub
+#    bass:
+#      path: ../bass
