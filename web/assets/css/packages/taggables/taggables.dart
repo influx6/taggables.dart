@@ -128,12 +128,12 @@ class ElementHooks{
 
 	void fireHook(String name,dynamic n){
 		if(!this.hooks.has(name)) return null;
-		if(!Valids.exist(this.element))
-			return this.hooks.get(name).emit(n);
-		var phase = n is html.CustomEvent ? n.eventPhase : null;
+
 		var e = (n is html.CustomEvent ? (n.eventPhase < 2 ? n : 
 			new html.CustomEvent(name,detail: n.detail)) 
 			: new html.CustomEvent(name,detail: n));
+
+		if(Valids.notExist(this.element)) return this.hooks.get(name).emit(e);
 		return this.element.dispatchEvent(e);
 	}
 
