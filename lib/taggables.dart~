@@ -9,8 +9,6 @@ import 'dart:html' as html;
 export 'package:bass/bass.dart';
 export 'package:hub/hubclient.dart';
 
-final _Empty = (e){};
-
 class CustomValidator{
 	html.NodeValidatorBuilder _validator;
 
@@ -509,7 +507,6 @@ class ElementObservers{
 
 	void addEvent(String n,[Function m]){
 		this.observer.addHook(n,m);
-                this.bind(n,_Empty);
 	}
 
 	void removeEvent(String n){
@@ -874,6 +871,7 @@ class Hook{
 		// 	return throw "Hook binding element must already have been added to the dom before using it";
 
 		this.coreElement = core;
+		// this.style = Taggables.create('style');
 		parent = Funcs.switchUnless(parent,this.coreElement.parent);
 		pops = Funcs.switchUnless(pops,{
 			'childList':true,
@@ -886,6 +884,7 @@ class Hook{
 		this.observerManager.observe(this.coreElement,parent:parent,parentOptions:pops,insert:n);
 		this.display = DisplayHook.create(this.coreElement.ownerDocument.window);
 
+		// this.style.attributes['id'] = 
 		this.afterInit();
 
 		return this;
@@ -894,6 +893,7 @@ class Hook{
 	void afterInit(){
 		this.delegateRegistryAdd(this.coreElement.children);
 		this.fireEvent('__init__',true);
+		// this.display.run();
 	}
 
 	dynamic getEvent(String n) => this.observerManager.getEvent(n);
@@ -1182,7 +1182,7 @@ class Tag extends EventHandler{
 	}
 
 	bool get inprinted => !!this._inprint;
-        html.Element get root => this.wrapper;
+
 	MapDecorator get sd => this.sharedData;
 
 	void beforeInit(){
@@ -1223,8 +1223,8 @@ class Tag extends EventHandler{
 	  this.factories.addFactory('teardownDOM',(e){});
 
 	  this.cssf.bind((m){
-                this.style.children.clear();
-                this.style.text = m;
+	  		this.style.children.clear();
+	  		this.style.text = m;
 	  });
 
 	  this.shadowfactories.addFactory('liveProc',(e){
@@ -1312,7 +1312,7 @@ class Tag extends EventHandler{
 	dynamic queryAllParent(n,[v]) => Valids.exist(this.parent) ? Taggables.queryAllElem(this.parent,n,v) : null;
 
 	bool parentHasAttr(String n) => Valids.exist(this.parent) ? this.parent.attributes.containsKey(n) : false;	
-	bool parentHasData(String n) => Valids.exist(this.parent) ? this.parent.dataset.containsKey(n) : false;
+	bool parentHasData(String n) => Valids.exist(this.parent) ? this.parent.dataset.contains(n) : false;
 		
 	dynamic getParentCSS(List a){
 	  return Taggables.getCSS(this.parent,a);
@@ -1322,7 +1322,7 @@ class Tag extends EventHandler{
 	  return Taggables.getTagCSS(this,a);
 	}
 	
-	dynamic parentAttr(String n,[dynamic val]){
+	dynamic parentAttr(String n,[dynamic val){
 	    if(Valids.notExit(this.parent)) return null;
 	    if(Valids.notExist(val)) return this.parent.getAttribute(n);
 	    return this.parent.attributes[n] = val;
@@ -1345,7 +1345,7 @@ class Tag extends EventHandler{
 
 	bool hasAttr(String n) => this.wrapper.attributes.containsKey(n);
 	
-	bool hasData(String n) => this.wrapper.dataset.containsKey(n);
+	bool hasData(String n) => this.wrapper.dataset.contains(n);
 	
 	dynamic attr(String n,[dynamic val]){
 		if(Valids.notExist(val)) return this.wrapper.getAttribute(n);
