@@ -222,7 +222,7 @@ class MutationEventDecorator{
 
 	MutationEventDecorator(this.e){
 		this.props = MapDecorator.create();
-                
+
 		var type = this.e.type.replaceAll('DOM','').toLowerCase(), an = [], rn = [];
 
 		if(Valids.match(type,'attrmodified')){
@@ -383,7 +383,6 @@ class DistributedManager{
 
 			var m = n;
 			if(n is html.CustomEvent) m = n.detail;
-
 			var type = m.type.toLowerCase();
 			Funcs.when(Valids.match(type,'attributes'),(){
 
@@ -915,6 +914,7 @@ class Hook{
 		this.coreElement = core;
 		parent = Funcs.switchUnless(parent,this.coreElement.parent);
             
+                print('hooks creating ops: ${pops} for $core');
 		pops = Enums.merge({
 			'childList':true,
 			'attributes':true,
@@ -922,6 +922,8 @@ class Hook{
 			'characterData': true,
 			'characterDataOldValue': true
 		},Funcs.switchUnless(pops,{}));
+
+                print('hooks using ops: ${pops} with $core');
 
 		this.observerManager.observe(this.coreElement,parent:parent,parentOptions:pops,insert:n);
 		this.display = DisplayHook.create(this.coreElement.ownerDocument.window);
@@ -938,10 +940,8 @@ class Hook{
         
 	void delegateRegistry(event){
           if(this.coreElement != event.target) return null;
-          if(event.detail.addedNodes.length > 0) 
-              this.delegateRegistryAdd(event.detail.addedNodes,event);
-          if(event.detail.removedNodes.length > 0) 
-              this.delegateRegistryRemove(event.detail.removedNodes,event);
+          if(event.detail.addedNodes.length > 0) this.delegateRegistryAdd(event.detail.addedNodes,event);
+          if(event.detail.removedNodes.length > 0) this.delegateRegistryRemove(event.detail.removedNodes,event);
 	}
         
 	void delegateRegistryAdd(List<html.Element> tags,[event]){
@@ -954,15 +954,11 @@ class Hook{
                             parent = tag.parent,
                             me = this.coreElement,
                             parentName = Valids.exist(parent) ? parent.tagName : null;
-          
-                        if(Valids.exist(parent)){
-                          if(Taggables.core.providesTag(parentName) && parent != me)
-                            return null;
-                        }
+        
 
+                        if(Taggables.core.providesTag(parentName) && parent != me) return null;
 
-                        if(!Taggables.core.providesTag(tagName)) 
-                            return this.delegateRegistryAdd(tag.children,event);
+                        if(!Taggables.core.providesTag(tagName)) return this.delegateRegistryAdd(tag.children,event);
 
                         
                         if(!this.loadedTags.has(tagName)) this.loadedTags.add(tagName,[]);
@@ -1268,7 +1264,7 @@ class Tag extends EventHandler{
 	  this.style.attributes['type'] = 'text/css';
 
 	  //open dom update and teardown events for public use
-	  this.addEvent('update');
+	  this.addEvent('prepareDOM');
 	  this.addEvent('updateDOM');
 	  this.addEvent('teardownDOM');
 	  //ghost events for internal use;
@@ -1277,53 +1273,60 @@ class Tag extends EventHandler{
 
 	  this.factories.addFactory('updateDOM',(e){ });
 	  this.factories.addFactory('teardownDOM',(e){});
-	  this.factories.addFactory('teardown',(e) => this.root.setInnerHtml(""));
 
 	  this.cssf.bind((m){
                 this.style.children.clear();
                 this.style.text = m;
 	  });
 
-	  this.shadowfactories.addFactory('update',(e){
-	  	this.fireEvent('teardownDOM',e);
+	  this.shadowfactories.addFactory('liveProc',(e){
+	  	this.fireEvent('updateDOM',e);
 	  });
 
 	  this.shadowfactories.addFactory('updateLive',(e){
-              if(!this.isShadowSealed) return null;
               var clone = this.shadow.clone(true);
-              this.wrapper.append(clone);
+              this.wrapper.append(this.shadow);
+              this.shadow.append(clone);
 	  });
 
 	  this.shadowfactories.addFactory('teardownLive',(e){
-	  	if(!this.isShadowSealed) return null;
-                this.wrapper.setInnerHtml("");
+	  	this.wrapper.setInnerHtml("");
 	  });
 
 	  this.bind('_updateLive',this.shadowfactories.getFactory('updateLive'));
 	  this.bind('_teardownLive',this.shadowfactories.getFactory('teardownLive'));
-	  this.bind('domReady',this.shadowfactories.getFactory('update'));
-	  this.bind('update',this.shadowfactories.getFactory('update'));
-  
-          this.bind('updateDOM',this.getFactory('updateDOM'));
-          this.bind('teardownDOM',this.getFactory('teardownDOM'));
+	  this.bind('domReady',this.shadowfactories.getFactory('liveProc'));
 
-	  this.bind('domadded',this.shadowfactories.getFactory('update'));
-	  this.bind('domremoved',this.getFactory('teardown'));
+	  this.bind('updateDOM',this.getFactory('updateDOM'));
+	  this.bind('teardownDOM',this.getFactory('teardownDOM'));
+
+	  this.bind('domAdded',this.getFactory('updateDOM'));
+	  this.bind('domRemoved',this.getFactory('teardownDOM'));
+
+	  this.bind('childAdded',(e){
+
+          });
+
+	  this.bind('childRemoved',(e){
+
+          });
+
 
 	  this.bindWhenDone('_teardownLive',(e){
 	  	this.fireEvent("_updateLive",e);
   	  });
 
-	  this.bindWhenDone('_updateLive',(e){ 
+	  this.bindWhenDone('updateDOM',(e){ 
+	  	this.fireEvent('teardownDOM',e);
 	  	this.css.compile();
-	  	this.fireEvent('updateDOM',e);
   	  });
 
 	  this.bindWhenDone('teardownDOM',(e){ 
 	  	this.fireEvent('_teardownLive',e); 
 	  });
-          
+
 	  this.shadow.setInnerHtml(this.preContent.innerHtml);
+	  this.wrapper.append(this.shadow);
 	}
 
 	void init(html.Element parent,[Function n,Maps ops]){
@@ -1352,36 +1355,19 @@ class Tag extends EventHandler{
 	void unbindFactory(String name,String ft) => this.factories.unbindFactory(name,ft);
 	void unbindFactoryOnce(String name,String ft) => this.factories.unbindFactoryOnce(name,ft);
 
-        dynamic createShadowElement(String n,[String content]){
-            var elem = Taggables.createElement(n);
-            if(Valids.exist(content)) elem.setInnerHtml(content);
-            Taggables.defaultValidator.addTag(elem.tagName);
-            this.shadow.append(elem);
-            return elem;
-        }
-
-        dyamic createShadowHtml(String markup){
-            var elem = Taggables.createHtml(markup);
-            Taggables.defaultValidator.addTag(elem.tagName);
-            this.shadow.append(elem);
-            return elem;
-
-        }
-
 	dynamic createElement(String n,[String content]){
-            print('creating');
-            var elem = Taggables.createElement(n);
-            if(Valids.exist(content)) elem.setInnerHtml(content);
-            Taggables.defaultValidator.addTag(elem.tagName);
-            this.root.append(elem);
-            return elem;
+		var elem = Taggables.createElement(n);
+		if(Valids.exist(content)) elem.setInnerHtml(content);
+		Taggables.defaultValidator.addTag(this.wrapper.tagName);
+		this.shadow.append(elem);
+		return elem;
 	}
 
 	dynamic createHtml(String markup){
-            var elem = Taggables.createHtml(markup);
-            Taggables.defaultValidator.addTag(elem.tagName);
-            this.root.append(elem);
-            return elem;
+		var elem = Taggables.createHtml(markup);
+		Taggables.defaultValidator.addTag(elem.tagName);
+		this.shadow.append(elem);
+		return elem;
 	}
 	
 	dynamic queryParent(n,[v]) => Valids.exist(this.parent) ? Taggables.queryElem(this.parent,n,v) : null;
@@ -1416,10 +1402,8 @@ class Tag extends EventHandler{
 	}	
 	
 	dynamic query(n,[v]) => Taggables.query(this,n,v);
-	dynamic queryAll(n,[v]) => Taggables.queryAll(this,n,v);
 
-	dynamic queryShadow(n,[v]) => Taggables.queryShadow(this,n,v);
-	dynamic queryShadowAll(n,[v]) => Taggables.queryShadowAll(this,n,v);
+	dynamic queryAll(n,[v]) => Taggables.queryAll(this,n,v);
 
 	bool hasAttr(String n) => this.wrapper.attributes.containsKey(n);
 	
@@ -1475,7 +1459,6 @@ class TagUtil{
 
 class Taggables{
 
-	static Log debug = Log.create(null,null,"Taggables#({tag}):\n\t{res}\n");
 	static Bass css = Bass.B;
 	static RuleSet bassRules = Bass.R;
 	static TagRegistry core = TagRegistry.create();
@@ -1514,18 +1497,10 @@ class Taggables{
 	}
 
 	static dynamic query(Tag n,String query,[Function v]){
-		return Taggables.queryElem(n.root,query,v);
-	}
-
-	static dynamic queryAll(Tag n,String query,[Function v]){
-		return Taggables.queryAllElem(n.root,query,v);
-	}
-
-	static dynamic queryShadow(Tag n,String query,[Function v]){
 		return Taggables.queryElem(n.shadow,query,v);
 	}
 
-	static dynamic queryShadowAll(Tag n,String query,[Function v]){
+	static dynamic queryAll(Tag n,String query,[Function v]){
 		return Taggables.queryAllElem(n.shadow,query,v);
 	}
 

@@ -1,5 +1,5 @@
 name: taggables
-version: 0.0.2
+version: 0.0.3
 author: Alexander Adeniyin Ewetumo <trinoxf@gmail.com>
 homepage: http://github.com/influx6/taggables.dart
 description: a derivative implementation of x-tag components in dart with a few differences
@@ -7,7 +7,6 @@ dependencies:
     browser: any
     hub: any
     bass: any
-    atomic: any
 #dependency_overrides:
 #    hub:
 #      path: ../hub
