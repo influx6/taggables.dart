@@ -1281,8 +1281,10 @@ class Tag extends EventHandler{
 	  this.factories.addFactory('teardown',(e) => this.root.setInnerHtml(""));
 
 	  this.cssf.bind((m){
-                this.style.children.clear();
+                 print('going to update css ${this.style.text}');
+                this.style.text = "";
                 this.style.text = m;
+                 print('done update css ${this.style.text}');
 	  });
 
 	  this.shadowfactories.addFactory('update',(e){
