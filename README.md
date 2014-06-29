@@ -70,8 +70,12 @@
 	   Enjoy and cheers.
 	*/
 	Taggables.core.register('dashboards','dashboard-header',(tag,init){
+  
+                //enables a shadowfragment and freezes it,only content within these fragment
+                //will ever be added to the new tag as content
+                tag.sealShadow();
 
-		tag.css.sel('dashboard-header',{
+		tag.css({
 			'display':'block',
 			'background': 'rgba(0,0,0,0.7)',
 			'overflow': 'hidden',
@@ -92,15 +96,18 @@
 		});
 
 		tag.bind('beforedomReady',(e){
-			tag.createElement("span",tag.data('title'));
+                    //add a span into the shadow
+                    tag.createShadowElement("span",tag.data('title'));
 		});
 
 		tag.addFactory('titleUpdate',(e){
-			tag.query('span',(s){
+                        //query the shadow and update as necessary
+			tag.queryShadow('span',(s){
 				tag.fetchData('title',(d){
 					s.setInnerHtml(d);
 				});
-				tag.fireEvent('updateDOM',true);
+                          //update the dom
+                          tag.fireEvent('update',true);
 			});
 		});
 
