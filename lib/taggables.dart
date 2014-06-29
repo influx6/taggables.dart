@@ -1389,12 +1389,14 @@ class Tag extends EventHandler{
 	bool parentHasAttr(String n) => Valids.exist(this.parent) ? this.parent.attributes.containsKey(n) : false;	
 	bool parentHasData(String n) => Valids.exist(this.parent) ? this.parent.dataset.containsKey(n) : false;
 		
+        dynamic get cssSheet => this.styleSheet;
+
         void css(Map m){
           return this.styleSheet.sel(this.tag,m);
         }
 
-        void updateCSS(Map m){
-          return this.styleSheet.updateSel(this.tag,m)
+        void modCSS(Map m){
+          return this.styleSheet.updateSel(this.tag,m);
         }
 
 	dynamic getParentCSS(List a){
