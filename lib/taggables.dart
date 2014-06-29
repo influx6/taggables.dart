@@ -1269,6 +1269,7 @@ class Tag extends EventHandler{
 
 	  //open dom update and teardown events for public use
 	  this.addEvent('update');
+	  this.addEvent('updateCSS');
 	  this.addEvent('updateDOM');
 	  this.addEvent('teardownDOM');
 	  //ghost events for internal use;
@@ -1288,6 +1289,10 @@ class Tag extends EventHandler{
 	  	this.fireEvent('teardownDOM',e);
 	  });
 
+	  this.shadowfactories.addFactory('updateCSS',(e){
+	  	this.styleSheet.compile();
+	  });
+
 	  this.shadowfactories.addFactory('updateLive',(e){
               if(!this.isShadowSealed) return null;
               var clone = this.shadow.clone(true);
@@ -1299,6 +1304,7 @@ class Tag extends EventHandler{
                 this.wrapper.setInnerHtml("");
 	  });
 
+	  this.bind('updateCSS',this.shadowfactories.getFactory('updateCSS'));
 	  this.bind('_updateLive',this.shadowfactories.getFactory('updateLive'));
 	  this.bind('_teardownLive',this.shadowfactories.getFactory('teardownLive'));
 	  this.bind('domReady',this.shadowfactories.getFactory('update'));
@@ -1315,7 +1321,7 @@ class Tag extends EventHandler{
   	  });
 
 	  this.bindWhenDone('_updateLive',(e){ 
-	  	this.styleSheet.compile();
+	  	this.fireEvent('updateCSS',e);
 	  	this.fireEvent('updateDOM',e);
   	  });
 
