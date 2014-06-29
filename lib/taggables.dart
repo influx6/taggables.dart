@@ -1346,11 +1346,22 @@ class Tag extends EventHandler{
 	Function updateFactory(String name,Function n(e)) => this.factories.updateFactory(name,n);
 	Function getFactory(String name) => this.factories.getFactory(name);
 	bool hasFactory(String name) => this.factories.hasFactory(name);
+
 	void fireFactory(String name,[dynamic n]) => this.factories.fireFactory(name)(n);
 	void bindFactory(String name,String ft) => this.factories.bindFactory(name,ft);
 	void bindFactoryOnce(String name,String ft) => this.factories.bindFactoryOnce(name,ft);
 	void unbindFactory(String name,String ft) => this.factories.unbindFactory(name,ft);
 	void unbindFactoryOnce(String name,String ft) => this.factories.unbindFactoryOnce(name,ft);
+
+        void createFactoryEvent(String ev,String n){
+            this.addEvent(ev);
+            this.bindFactory(ev,n);
+        }
+
+        void destroyFactoryEvent(String ev,String n){
+          this.unbindFactory(ev,n);
+          this.removeEvent(ev);
+        }
 
         dynamic createShadowElement(String n,[String content]){
             var elem = Taggables.createElement(n);
