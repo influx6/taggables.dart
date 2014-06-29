@@ -1350,13 +1350,13 @@ class Tag extends EventHandler{
                 ms = Funcs.switchUnless(ms,500);
 		var head = parent.ownerDocument.query('head');
 		head.insertBefore(this.style,head.firstChild);
+                if(Valids.notExist(this.root.parent) || (Valids.exist(this.root.parent) && this.root.parent != parent)){
+                    this.atom('parentCSS').changeHandler(parent.getComputedStyle());
+                    this.atom('parentCSS').checkAtomics();
+                }
 		this.observer.init(this.wrapper,parent,ops,n);
 		this.display = DisplayHook.create(parent.ownerDocument.window);
                 this.display.scheduleEvery(ms,(e){ this.atomics.onAll((v,k) => k.checkAtomics()); });
-                if(Valids.exist(this.root.parent) && this.root.parent != parent){
-                    this.atom('parentCSS').changeHandler(this.root.parent.getComputedStyle());
-                    this.atom('parentCSS').checkAtomics();
-                }
 	}
 	
 	html.Element get parent => this.wrapper.parent;
