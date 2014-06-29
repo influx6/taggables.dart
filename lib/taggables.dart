@@ -1184,7 +1184,7 @@ class Tag extends EventHandler{
 	html.Element wrapper,preContent,style;
 	EventFactory factories,shadowfactories;
 	DisplayHook display;
-	BassNS css;
+	BassNS styleSheet;
 	BassFormatter cssf;
 
 
@@ -1261,8 +1261,8 @@ class Tag extends EventHandler{
 	  	this.attr('id',id);
 	  }
 
-	  this.css = Bass.NS(id);
-	  this.cssf = this.css.css();
+	  this.styleSheet = Bass.NS(id);
+	  this.cssf = this.styleSheet.css();
 	  this.style.attributes['id'] = Funcs.combineStrings(id,'-style');
 	  this.style.dataset['tag-id'] = this.tag;
 	  this.style.attributes['type'] = 'text/css';
@@ -1315,7 +1315,7 @@ class Tag extends EventHandler{
   	  });
 
 	  this.bindWhenDone('_updateLive',(e){ 
-	  	this.css.compile();
+	  	this.styleSheet.compile();
 	  	this.fireEvent('updateDOM',e);
   	  });
 
@@ -1369,7 +1369,6 @@ class Tag extends EventHandler{
         }
 
 	dynamic createElement(String n,[String content]){
-            print('creating');
             var elem = Taggables.createElement(n);
             if(Valids.exist(content)) elem.setInnerHtml(content);
             Taggables.defaultValidator.addTag(elem.tagName);
@@ -1390,6 +1389,14 @@ class Tag extends EventHandler{
 	bool parentHasAttr(String n) => Valids.exist(this.parent) ? this.parent.attributes.containsKey(n) : false;	
 	bool parentHasData(String n) => Valids.exist(this.parent) ? this.parent.dataset.containsKey(n) : false;
 		
+        void css(Map m){
+          return this.styleSheet.sel(this.tag,m);
+        }
+
+        void updateCSS(Map m){
+          return this.styleSheet.updateSel(this.tag,m)
+        }
+
 	dynamic getParentCSS(List a){
 	  return Taggables.getCSS(this.parent,a);
 	}
