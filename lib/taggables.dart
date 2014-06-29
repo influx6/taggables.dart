@@ -3,11 +3,11 @@ library taggables;
 import 'dart:collection';
 import 'dart:convert';
 import 'package:bass/bass.dart';
-import 'package:hub/hubclient.dart';
+import 'package:hub/hub.dart';
 import 'dart:html' as html;
 
 export 'package:bass/bass.dart';
-export 'package:hub/hubclient.dart';
+export 'package:hub/hub.dart';
 
 final _Empty = (e){};
 
@@ -836,6 +836,13 @@ class DisplayHook{
 
 	String toString() => "DisplayHook with ${this._frameid}";
 
+        void destroy(){
+          this.repeaters.clear();
+          this.tasks.destroy();
+          this.alive.close();
+          this.w = null;
+        }
+
 }
 
 class Hook{
@@ -1179,6 +1186,7 @@ class Tag extends EventHandler{
 	bool _sealedShadow = false, _ready = false, _inprint = false;
 	String tag,tagNS;
 	MapDecorator sharedData;
+	MapDecorator atomics;
 	Hook observer;
 	html.DocumentFragment _shadowDoc;
 	html.Element wrapper,preContent,style;
@@ -1247,6 +1255,7 @@ class Tag extends EventHandler{
 	  this.factories = EventFactory.create(this);
 	  this.shadowfactories = EventFactory.create(this);
 	  this.sharedData = MapDecorator.create();
+	  this.atomics = MapDecorator.create();
 	  this._shadowDoc = new html.DocumentFragment();
 
 	  this.style = Taggables.createElement('style');
@@ -1260,6 +1269,12 @@ class Tag extends EventHandler{
 	  	id = "${this.tag}-${Hub.randomString(2,5)}"; 
 	  	this.attr('id',id);
 	  }
+
+          this.addAtom('myCSS',this.root.getComputedStyle());
+          this.addAtom('parentCSS',null);
+          if(Valids.exist(this.root.parent)) 
+            this.atom('parentCSS').changeHandler(this.root.parent.getComputedStyle());
+
 
 	  this.styleSheet = Bass.NS(id);
 	  this.cssf = this.styleSheet.css();
@@ -1331,15 +1346,29 @@ class Tag extends EventHandler{
 	  this.shadow.setInnerHtml(this.preContent.innerHtml);
 	}
 
-	void init(html.Element parent,[Function n,Maps ops]){
+	void init(html.Element parent,[Function n,Maps ops,int ms]){
+                ms = Funcs.switchUnless(ms,500);
 		var head = parent.ownerDocument.query('head');
 		head.insertBefore(this.style,head.firstChild);
 		this.observer.init(this.wrapper,parent,ops,n);
 		this.display = DisplayHook.create(parent.ownerDocument.window);
+                this.display.scheduleEvery(ms,(e){ this.atomics.onAll((v,k) => k.checkAtomics()); });
+                if(Valids.exist(this.root.parent) && this.root.parent != parent)
+                    this.atom('parentCSS').changeHandler(this.root.parent.getComputedStyle());
 	}
 	
 	html.Element get parent => this.wrapper.parent;
 	
+        void addAtom(String n,Object b) => this.atomics.add(n,FunctionalAtomic.create(b));
+        void removeAtom(String n) => this.atomics.has(n) && this.atomics.destroy(n).destroy();
+        FunctionalAtomic atom(String n) => this.atomics.get(n);
+
+        FunctionalAtomic get parentAtom => this.atom('parentCSS');
+        FunctionalAtomic get myAtom => this.atom('myCSS');
+
+        void startAtoms() => this.display.run();
+        void stopAtoms() => this.display.stop();
+
 	void bind(String name,Function n) => this.observer.bind(name,n);
 	void bindOnce(String name,Function n) => this.observer.bindOnce(name,n);
 	void unbind(String name,Function n) => this.observer.unbind(name,n);
@@ -1479,6 +1508,8 @@ class Tag extends EventHandler{
 
 	void destroy(){
 	  this._ready = false;
+          this.stopAtoms();
+          this.display.destroy();
 	  this.observer.destroy();
 	  this.factories.destroy();
 	  this.sharedData.clear();

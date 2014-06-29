@@ -9,6 +9,14 @@ void main(){
 	
 	Taggables.core.register('examples','live-header',(tag,init){
 
+                tag.parentAtom.addAtomic('width',(e){
+                    return e.width;
+                });
+
+                tag.parentAtom.bind('width',(e){
+                    print('parents width just changed $e');
+                });
+
 		tag.css({
 			'display':'block',
 			'background': 'rgba(0,0,0,0.7)',
@@ -48,6 +56,8 @@ void main(){
 		tag.bindFactory('attributeChange','titleUpdate');
 
 		init();
+                tag.startAtoms();
+
         });
 
 	Taggables.core.register('examples','shadow-header',(tag,init){
