@@ -589,6 +589,7 @@ class EventFactory{
 
 	void bindFactory(String name,String ft){
 		if(!this.factories.has(ft)) return null;
+                /*if(this.bindings.has(name) && this.bindings.get(name).contains(ft)) return null;*/
 		(this.bindings.has(name) ? this.bindings.get(name).add(ft) : this.bindings.add(name,[ft]));
 		this.handler.bind(name,this.factories.get(ft));
 	}
@@ -1194,7 +1195,8 @@ class Tag extends EventHandler{
 	DisplayHook display;
 	BassNS styleSheet;
 	BassFormatter cssf;
-
+        Function _displayhook;
+        bool _displayActive = false;
 
 	static create(n,m){
 		if(n is html.Element){
@@ -1270,10 +1272,10 @@ class Tag extends EventHandler{
 	  	this.attr('id',id);
 	  }
 
-          this.addAtom('myCSS',this.root.getComputedStyle());
+          this.addAtom('myCSS',this.rootStyle);
           this.addAtom('parentCSS',null);
-          if(Valids.exist(this.root.parent)) 
-            this.atom('parentCSS').changeHandler(this.root.parent.getComputedStyle());
+          if(Valids.exist(this.parent)) 
+            this.atom('parentCSS').changeHandler(this.parentStyle);
 
 
 	  this.styleSheet = Bass.NS(id);
@@ -1344,23 +1346,29 @@ class Tag extends EventHandler{
 	  });
           
 	  this.shadow.setInnerHtml(this.preContent.innerHtml);
+          this._displayhook = (e){
+             this.atomics.onAll((v,k) => k.checkAtomics());
+          };
+
 	}
 
-	void init(html.Element parent,[Function n,Maps ops,int ms]){
-                ms = Funcs.switchUnless(ms,500);
+	void init(html.Element parent,[Function n,Maps ops]){
 		var head = parent.ownerDocument.query('head');
 		head.insertBefore(this.style,head.firstChild);
-                if(Valids.notExist(this.root.parent) || (Valids.exist(this.root.parent) && this.root.parent != parent)){
-                    this.atom('parentCSS').changeHandler(parent.getComputedStyle());
+                if(Valids.notExist(this.parent) || (Valids.exist(this.parent) && this.parent != parent)){
+                    this.atom('parentCSS').changeHandler(this.parentStyle);
                     this.atom('parentCSS').checkAtomics();
                 }
 		this.observer.init(this.wrapper,parent,ops,n);
 		this.display = DisplayHook.create(parent.ownerDocument.window);
-                this.display.scheduleEvery(ms,(e){ this.atomics.onAll((v,k) => k.checkAtomics()); });
 	}
 	
 	html.Element get parent => this.wrapper.parent;
-	
+
+	dynamic get parentStyle => Valids.exist(this.parent) ? this.parent.getComputedStyle() : null;
+        dynamic get rootStyle => this.root.getComputedStyle();
+
+
         void addAtom(String n,Object b) => this.atomics.add(n,FunctionalAtomic.create(b));
         void removeAtom(String n) => this.atomics.has(n) && this.atomics.destroy(n).destroy();
         FunctionalAtomic atom(String n) => this.atomics.get(n);
@@ -1368,8 +1376,19 @@ class Tag extends EventHandler{
         FunctionalAtomic get parentAtom => this.atom('parentCSS');
         FunctionalAtomic get myAtom => this.atom('myCSS');
 
-        void startAtoms() => this.display.run();
-        void stopAtoms() => this.display.stop();
+        void startAtoms([int ms]){
+          if(this._displayActive) return null;
+          ms = Funcs.switchUnless(ms,300);
+          this.display.scheduleEvery(ms,this._displayhook);
+          this.display.run();
+          this._displayActive = true;
+        }         
+        
+        void stopAtoms(){
+          if(!this._displayActive) return null;
+          this.display.stop();
+          this._displayActive = false;
+        }
 
 	void bind(String name,Function n) => this.observer.bind(name,n);
 	void bindOnce(String name,Function n) => this.observer.bindOnce(name,n);
@@ -1388,6 +1407,11 @@ class Tag extends EventHandler{
 	void bindFactoryOnce(String name,String ft) => this.factories.bindFactoryOnce(name,ft);
 	void unbindFactory(String name,String ft) => this.factories.unbindFactory(name,ft);
 	void unbindFactoryOnce(String name,String ft) => this.factories.unbindFactoryOnce(name,ft);
+  
+        void createFevent(String nf,Function n){
+          this.addFactory(nf,n);
+          this.createFactoryEvent(nf,nf);
+        } 
 
         void createFactoryEvent(String ev,String n){
             this.addEvent(ev);
@@ -1524,11 +1548,11 @@ class Tag extends EventHandler{
 
 class TagUtil{
   
-    static int fromPx(String px){
-      return int.parse(px.replaceAll('px',''));
+    static num fromPx(String px){
+      return num.parse(px.replaceAll('px',''));
     }
 
-    static String toPx(int px) => "${px}px";
+    static String toPx(num px) => "${px}px";
 }
 
 class Taggables{
