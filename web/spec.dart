@@ -7,7 +7,7 @@ import 'package:hub/hubclient.dart';
 
 void main(){
 	
-	Taggables.core.register('examples','live-header',(tag,init){
+	Core.register('examples','live-header',(tag,init){
 
                 tag.parentAtom.addAtomic('width',(e){
                     return e.width;
@@ -60,7 +60,7 @@ void main(){
 
         });
 
-	Taggables.core.register('examples','shadow-header',(tag,init){
+	Core.register('examples','shadow-header',(tag,init){
     
                 tag.sealShadow();
 
@@ -105,5 +105,5 @@ void main(){
 		init();
 	});
   
-        /*Taggables.core.unregister('dashboards','dashboard-header');*/
+        /*Core.unregister('dashboards','dashboard-header');*/
 }

@@ -1,0 +1,357 @@
+server.init(this.wrapper,parent,ops,n);
+		this.display = DisplayHook.create(parent.ownerDocument.window);
+	}
+	
+	html.Element get parent => this.wrapper.parent;
+
+	dynamic get parentStyle => Valids.exist(this.parent) ? this.parent.getComputedStyle() : null;
+        dynamic get rootStyle => this.root.getComputedStyle();
+
+
+        void addAtom(String n,Object b) => this.atomics.add(n,FunctionalAtomic.create(b));
+        void removeAtom(String n) => this.atomics.has(n) && this.atomics.destroy(n).destroy();
+        FunctionalAtomic atom(String n) => this.atomics.get(n);
+
+        FunctionalAtomic get parentAtom => this.atom('parentCSS');
+        FunctionalAtomic get myAtom => this.atom('myCSS');
+
+        void startAtoms([int ms]){
+          if(this._displayActive) return null;
+          ms = Funcs.switchUnless(ms,300);
+          this.display.scheduleEvery(ms,this._displayhook);
+          this.display.run();
+          this._displayActive = true;
+        }         
+        
+        void stopAtoms(){
+          if(!this._displayActive) return null;
+          this.display.stop();
+          this._displayActive = false;
+        }
+
+	void bind(String name,Function n) => this.observer.bind(name,n);
+	void bindOnce(String name,Function n) => this.observer.bindOnce(name,n);
+	void unbind(String name,Function n) => this.observer.unbind(name,n);
+	void unbindOnce(String name,Function n) => this.observer.unbindOnce(name,n);
+	void bindWhenDone(String nm,Function n) => this.observer.bindWhenDone(nm,n);
+	void unbindWhenDone(String nm,Function n) => this.observer.unbindWhenDone(nm,n);
+
+	void addFactory(String name,Function n(e)) => this.factories.addFactory(name,n);
+	Function updateFactory(String name,Function n(e)) => this.factories.updateFactory(name,n);
+	Function getFactory(String name) => this.factories.getFactory(name);
+	bool hasFactory(String name) => this.factories.hasFactory(name);
+
+	void fireFactory(String name,[dynamic n]) => this.factories.fireFactory(name)(n);
+	void bindFactory(String name,String ft) => this.factories.bindFactory(name,ft);
+	void bindFactoryOnce(String name,String ft) => this.factories.bindFactoryOnce(name,ft);
+	void unbindFactory(String name,String ft) => this.factories.unbindFactory(name,ft);
+	void unbindFactoryOnce(String name,String ft) => this.factories.unbindFactoryOnce(name,ft);
+  
+        void createFevent(String nf,Function n){
+          this.addFactory(nf,n);
+          this.createFactoryEvent(nf,nf);
+        } 
+
+        void createFactoryEvent(String ev,String n){
+            this.addEvent(ev);
+            this.bindFactory(ev,n);
+        }
+
+        void destroyFactoryEvent(String ev,String n){
+          this.unbindFactory(ev,n);
+          this.removeEvent(ev);
+        }
+
+        dynamic createShadowElement(String n,[String content]){
+            var elem = TagUtil.createElement(n);
+            if(Valids.exist(content)) elem.setInnerHtml(content);
+            TagUtil.defaultValidator.addTag(elem.tagName);
+            this.shadow.append(elem);
+            return elem;
+        }
+
+        dyamic createShadowHtml(String markup){
+            var elem = TagUtil.createHtml(markup);
+            TagUtil.defaultValidator.addTag(elem.tagName);
+            this.shadow.append(elem);
+            return elem;
+
+        }
+
+	dynamic createElement(String n,[String content]){
+            var elem = TagUtil.createElement(n);
+            if(Valids.exist(content)) elem.setInnerHtml(content);
+            TagUtil.defaultValidator.addTag(elem.tagName);
+            this.root.append(elem);
+            return elem;
+	}
+
+	dynamic createHtml(String markup){
+            var elem = TagUtil.createHtml(markup);
+            TagUtil.defaultValidator.addTag(elem.tagName);
+            this.root.append(elem);
+            return elem;
+	}
+	
+	dynamic queryParent(n,[v]) => Valids.exist(this.parent) ? TagUtil.queryElem(this.parent,n,v) : null;
+	dynamic queryAllParent(n,[v]) => Valids.exist(this.parent) ? TagUtil.queryAllElem(this.parent,n,v) : null;
+
+	bool parentHasAttr(String n) => Valids.exist(this.parent) ? this.parent.attributes.containsKey(n) : false;	
+	bool parentHasData(String n) => Valids.exist(this.parent) ? this.parent.dataset.containsKey(n) : false;
+		
+        void css(Map m){
+          return this.cssSheet.ns.sel(this.tag,m);
+        }
+
+        void modCSS(Map m){
+          return this.cssSheet.ns.updateSel(this.tag,m);
+        }
+
+	dynamic getParentCSS(List a){
+	  return TagUtil.getCSS(this.parent,a);
+	}
+	
+	dynamic getCSS(List a){
+	  return TagUtil.getTagCSS(this,a);
+	}
+	
+	dynamic parentAttr(String n,[dynamic val]){
+	    if(Valids.notExit(this.parent)) return null;
+	    if(Valids.notExist(val)) return this.parent.getAttribute(n);
+	    return this.parent.attributes[n] = val;
+	}
+
+	dynamic parentData(String n,[dynamic val]){
+		if(Valids.notExit(this.parent)) return null;
+		if(Valids.notExist(val)) return this.parent.dataset[n];
+		return this.parent.dataset[n] = val;
+	}
+
+	dynamic fetchParentData(String n,Function m){
+		var d = this.parentData(n);
+		if(Valids.exist(d)) return m(d);
+	}	
+	
+	dynamic query(n,[v]) => TagUtil.query(this,n,v);
+	dynamic queryAll(n,[v]) => TagUtil.queryAll(this,n,v);
+
+	dynamic queryShadow(n,[v]) => TagUtil.queryShadow(this,n,v);
+	dynamic queryShadowAll(n,[v]) => TagUtil.queryShadowAll(this,n,v);
+
+	bool hasAttr(String n) => this.wrapper.attributes.containsKey(n);
+	
+	bool hasData(String n) => this.wrapper.dataset.containsKey(n);
+	
+	dynamic attr(String n,[dynamic val]){
+		if(Valids.notExist(val)) return this.wrapper.getAttribute(n);
+		return this.wrapper.attributes[n] = val;
+	}
+
+	dynamic data(String n,[dynamic val]){
+		if(Valids.notExist(val)) return this.wrapper.dataset[n];
+		return this.wrapper.dataset[n] = val;
+	}
+
+	dynamic fetchData(String n,Function m){
+		var d = this.data(n);
+		if(Valids.exist(d)) return m(d);
+	}
+
+        void bindData(String target,Function n,{RegExp reg:null, dynamic val:null}){
+            this.bind('attributeChange',(e){
+                if(e.detail.attributeName == target){
+                  var old = e.detail.oldValue,
+                      nval = this.data(target);
+                  
+                  Funcs.when(Valids.match(val,null) && Valids.exist(reg),(){
+                    if(!reg.hasMatch(nval)) return n(old,nval,e);
+                  });
+
+                  Funcs.when(Valids.exist(val) && Valids.match(reg,null),(){
+                    if(Valids.match(nval,val)) return n(old,nval,e);
+                  });
+
+                  Funcs.when(Valids.notExist(val) && Valids.notExist(reg),(){
+                    return n(old,nval,e);
+                  });
+
+                  return null;
+                }
+            });
+        }
+
+        void bindAttr(String target,Function n,{RegExp reg:null, dynamic val:null}){
+            this.bind('attributeChange',(e){
+                if(e.detail.attributeName == target){
+                  var old = e.detail.oldValue,
+                      nval = this.attr(target);
+                  
+                  Funcs.when(Valids.match(val,null) && Valids.exist(reg),(){
+                    if(!reg.hasMatch(nval)) return n(old,nval,e);
+                  });
+
+                  Funcs.when(Valids.exist(val) && Valids.match(reg,null),(){
+                    if(Valids.match(nval,val)) return n(old,nval,e);
+                  });
+
+                  Funcs.when(Valids.notExist(val) && Valids.notExist(reg),(){
+                    return n(old,nval,e);
+                  });
+
+                  return null;
+                }
+            });
+        }
+
+	void addEvent(String n,[Function m]){
+		this.observer.addEvent(n,m);
+	}
+
+	void removeEvent(String n){
+		this.observer.removeEvent(n);
+	}
+
+	void fireEvent(String n,dynamic a){
+		this.observer.fireEvent(n,a);
+	}
+
+	void destroy(){
+	  this._ready = false;
+          this.stopAtoms();
+          this.display.destroy();
+	  this.observer.destroy();
+	  this.factories.destroy();
+	  this.sharedData.clear();
+	  this.sharedData = this.factories = this.document = this.observer =  this.tagNS = null;
+	  this._shadowDoc = this._liveDoc = null;
+	}
+
+	String toString() => "tag#${this.tag} observer#${this.observer.guid}";
+
+}
+
+
+class TagUtil{
+  
+    StreamDispatcher dispatch = StreamDispatcher.create();
+    static TagRegistry core = TagRegistry.create();
+    static Log debug = Log.create(null,null,"TagUtil#({tag}):\n\t{res}\n");
+    static CustomValidator defaultValidator = new CustomValidator();
+
+    static num fromPx(String px){
+      return num.parse(px.replaceAll('px',''));
+    }
+
+    static String toPx(num px) => "${px}px";
+
+    static void deliverMessage(String sel,String type,dynamic r,[html.Document n]){
+      n = Funcs.switchUnless(n,html.window.document);
+      TagUtil.queryElem(n,sel,(d){
+        TagUtil.dispatchEvent(type,d,r);
+      });
+    }
+
+    static void deliverMassMessage(String sel,String type,dynamic r,[html.Document n]){
+      n = Funcs.switchUnless(n,html.window.document);
+      TagUtil.queryAllElem(n,sel,(d){
+        d.forEach((v){
+          TagUtil.dispatchEvent(type,v,r);
+        });
+      });
+    }
+
+    static void dispatchEvent(html.Element t,String n,[dynamic d]){
+        return t.dispatchEvent(new html.CustomEvent(n,detail:d));
+    }
+
+    static void dispatchEventWith(Tag g,String n,[d]) => TagUtil.dispatchEvent(n,g.root,d);
+
+    static dynamic getTagCSS(Tag g,List a){
+      return TagUtil.getCSS(g.wrapper,a);
+    }
+    
+    static dynamic getCSS(html.Element n,List a){
+      var res = {};
+      attr.forEach((f){
+         res[f] = n.style.getProperty(f);
+      });
+      return MapDecorator.create(res);
+    }
+    
+    static void tagCss(Tag n,String query,Map m){
+            var core = n.shadow.querySelectorAll(query);
+            if(Valids.notExist(core) || core.isEmpty) return null;
+            core.forEach((f){
+                    TagUtil.cssElem(f,m);
+            });
+    }
+
+    static dynamic queryElem(html.Element d,String query,[Function v]){
+            var q = d.querySelector(query);
+            if(Valids.exist(q) && Valids.exist(v)) v(q);
+            return q;
+    }
+
+    static dynamic queryAllElem(html.Element d,String query,[Function v]){
+            var q = d.querySelectorAll(query);
+            if(Valids.exist(q) && Valids.exist(v)) v(q);
+            return q;
+    }
+
+    static dynamic query(Tag n,String query,[Function v]){
+            return TagUtil.queryElem(n.root,query,v);
+    }
+
+    static dynamic queryAll(Tag n,String query,[Function v]){
+            return TagUtil.queryAllElem(n.root,query,v);
+    }
+
+    static dynamic queryShadow(Tag n,String query,[Function v]){
+            return TagUtil.queryElem(n.shadow,query,v);
+    }
+
+    static dynamic queryShadowAll(Tag n,String query,[Function v]){
+            return TagUtil.queryAllElem(n.shadow,query,v);
+    }
+
+    static void cssElem(html.Element n,Map m){
+        m.forEach((k,v){
+            n.style.setProperty(k,v);
+        });
+    }
+
+    static html.Element createElement(String n){
+            TagUtil.defaultValidator.addTag(n);
+            return html.window.document.createElement(n);
+    }
+
+    static html.Element createHtml(String n){
+            return new html.Element.html(n,validator: TagUtil.defaultValidator.rules);
+    }
+
+    static html.Element liquify(html.Element n){
+            var b = TagUtil.createElement('liquid');
+            b.setInnerHtml(n.innerHtml,validator: TagUtil.defaultValidator.rules);
+            return b;
+    }
+
+    static String deliquify(html.Element l,html.Element hold){
+            if(l.tagName.toLowerCase() == 'liquid'){
+                    hold.setInnerHtml(l.innerHtml,validator: TagUtil.defaultValidator.rules);
+            }
+    }
+}
+
+final Core = TagUtil.core;
+final Dispatch = TagUtil.dispatch;
+final DispatchEvent = (dynamic n,String t,[dynamic msg]){
+  if(n is html.Element) return TagUtil.dispatchEvent(n,t,msg);
+  if(n is Tag) return TagUtil.dispatchEventWith(n,t,msg);
+};
+final DeliverMessage = (bool isMass,String sel,String type,dynamic msg,[doc]){
+  if(isMass) return TagUtil.deliverMassMessage(sel,type,msg,doc);
+  return TagUtil.deliverMessage(sel,type,msg,doc);
+};
+final BindDoc = (Function m,[element,register]){
+  return Hook.bindWith(register,element,m);
+};
