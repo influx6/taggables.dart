@@ -8,8 +8,13 @@ dependencies:
     hub: any
     bass: any
     streamable: any
-dependency_overrides:
-   hub:
-     path: ../hub
-   bass:
-     path: ../bass
+    requestful: any
+# dependency_overrides:
+#     streamable:
+#       path: ../streamable
+#    requestful:
+#      path: ../requestful
+#    hub:
+#      path: ../hub
+#    bass:
+#      path: ../bass
