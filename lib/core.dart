@@ -1,5 +1,168 @@
 part of taggables;
 
+abstract class StoreHouse{
+  final MapDecorator storehouse = new MapDecorator<String,Tag>();
+  final SingleStore store;
+
+  StoreHouse(this.store);
+
+  Future delegateAdd(m);
+  Future delegateRemove(m);
+
+}
+
+class TagNS{
+	final MapDecorator blueprints = MapDecorator.create();
+	String id;
+
+	static create(n) => new TagNS(n);
+
+	TagNS(String d){
+          this.id = d.toLowerCase();
+	}
+
+	Tag createTag(html.Element tag){
+          var tagName = tag.tagName.toLowerCase();
+          if(!this.blueprints.has(tagName)) return null;
+          var blueprint = this.blueprints.get(tagName);
+          var f = Tag.create(tag,this.id);
+          blueprint(f);
+          return f;
+	}
+
+	void register(String tag,Function n(Tag g,Function n)){
+		this.blueprints.add(tag.toLowerCase(),n);
+	}
+
+	void unregister(String tag){
+            tag = tag.toLowerCase();
+            this.blueprints.destroy(tag);
+	}
+
+	void destroy(){
+		this.blueprints.clear();
+	}
+
+	bool has(String nm) => this.blueprints.has(nm.toLowerCase());
+
+	String toString() => this.blueprints.toString();
+
+	List get tags => this.blueprints.core.keys.toList();
+
+        List toList(){
+          return this.blueprints.core.keys.toList();
+        }
+
+        int totalBlueprints(){
+          return this.blueprints.core.length;
+        }
+}
+
+class TagRegistry{
+	MapDecorator namespace;
+	MapDecorator _providerCache;
+        Set _cacheList;
+        int _totalTags;
+
+	static create() => new TagRegistry();
+
+	TagRegistry(){
+            this.namespace = MapDecorator.create();
+            this._providerCache = MapDecorator.create();
+            this._cacheList = new Set<String>();
+            this._totalTags = 0;
+	}
+        
+        void _updateCache([String r]){
+            var count = 0;
+            Enums.eachAsync(this.namespace.core,(e,i,o,fn){
+               count += e.totalBlueprints();
+               this._cacheList.addAll(e.toList());
+               return fn(null);
+            },(_,err){
+              this._totalTags = count;
+              if(Valids.exist(r)) this._cacheList.remove(r);
+            });
+        }
+        
+        int get size => this._totalTags;
+        List get tags => this._cacheList.toList();
+        Set get cache => this._cacheList;
+  
+        bool providesTag(String n) => this._cacheList.contains(n.toLowerCase());
+
+	void addNS(String ns) => this.namespace.add(ns.toLowerCase(),TagNS.create(ns));
+	void removeNS(String ns) => this.namespace.destroy(ns.toLowerCase()).destroy();
+	TagNS ns(String n) => this.namespace.get(n.toLowerCase());
+
+	void register(String s,String tag,Function n){
+		if(!this.namespace.has(s.toLowerCase())) this.addNS(s);
+		var nsg = this.ns(s);
+		if(Valids.notExist(nsg)) return null;
+		TagUtil.defaultValidator.addTag(tag);
+		nsg.register(tag,n);
+                this._updateCache();
+	}
+
+	void unregister(String n,String tag){
+                var nsg = this.ns(n);
+		if(Valids.notExist(nsg)) return null;
+		nsg.unregister(tag);
+                this._updateCache(tag);
+	}
+
+	dynamic createTag(String s,String tagName,[html.Element e]){
+		var nsg = this.ns(s);
+		if(Valids.notExist(nsg)) return null;
+		return nsg.createTag(tagName,this,e);
+	}
+
+	bool hasNS(String ns) => this.namespace.has(ns.toLowerCase());
+
+	bool hasTag(String nsg,String tagName){
+		if(this.hasNS(nsg)) return false;
+		return this.ns(nsg).has(tagName);
+	}
+
+        Future<TagNS> delegateSearch(String tagName,[String tns]){
+          var comp = new Completer();
+          if(Valids.exist(tns)){
+            if(!this.hasNS(tns)) comp.completeError(new Exception('$tns for $tagName NOT FOUND!'));
+            else comp.complete(this.ns(tns));
+          }
+          this.findProvider(tagName,comp.complete,(f){
+            return comp.completeError(new Exception('Provider for $tagName NOT FOUND!'));
+          });
+          return comp.future;
+        }
+
+	TagNS findProvider(String tagName,[Function n,Function m]){
+                tagName = tagName.toLowerCase();
+                if(this._providerCache.has(tagName)) return n(this._providerCache.get(tagName));
+		Enums.eachAsync(this.namespace.storage,(e,i,o,fn){
+			if(e.has(tagName)){
+				if(Valids.exist(n)) n(e);
+                                this._providerCache.add(tagName,e);
+				return fn(true);
+			}
+			return fn(null);
+		},(_,err){
+			if(Valids.notExist(err) && Valids.exist(m)) m(tagName);
+		});
+
+		return this._providerCache.get(tagName);
+	}
+
+	String toString() => this.namespace.toString();
+
+        void destroy(){
+            this.namespace.clear();
+            this._providerCache.clear();
+            this._cacheList.clear();
+            this._totalTags = 0;
+        }
+}
+
 class QueryShell{
     html.Element root;
     QueryShell _ps;
@@ -117,15 +280,17 @@ class DisplayHook{
 	}
 
 	void run(){
-		if(!this.alive.on()) this.alive.switchOn();
-		this._frameid = this.w.requestAnimationFrame((i) => this.emit(i));
+          if(this.alive.on()) return null;
+          if(!this.alive.on()) this.alive.switchOn();
+          this._frameid = this.w.requestAnimationFrame((i) => this.emit(i));
 	}
 
 	void stop(){
-		this.alive.switchOff();
-		this.w.cancelAnimationFrame(this._frameid);
-		this._repeaters.forEach((f) => f.cancel());
-		this.tasks.clearJobs();
+          if(!this.alive.on()) return null;
+          this.alive.switchOff();
+          this.w.cancelAnimationFrame(this._frameid);
+          this._repeaters.forEach((f) => f.cancel());
+          this.tasks.clearJobs();
 	}
 
 	String toString() => "DisplayHook with ${this._frameid}";
@@ -162,10 +327,10 @@ class CustomValidator{
 }
 
 abstract class EventHandler{
-	void bind(String name,Function n);
-	void bindOnce(String name,Function n);
-	void unbind(String name,Function n);
-	void unbindOnce(String name,Function n);
+  void bind(String name,Function n);
+  void bindOnce(String name,Function n);
+  void unbind(String name,Function n);
+  void unbindOnce(String name,Function n);
 }
 
 class ElementHooks{
@@ -593,42 +758,72 @@ class DistributedManager{
 
 }
 
+class DualObservers extends EventHandler{
+  ElementObservers rootObserver;
+  ElementObservers parentObserver;
+
+  DualObservers([DistributedObservers childob,DistributedObservers parentob]){
+
+    childob = Funcs.switchUnless(childob,DistributedObserver.create());
+    parentob = Funcs.switchUnless(parentob,DistributedObserver.create());
+
+    this.rootObserver = ElementObservers.create(childob);
+    this.parentObserver = ElementObservers.create(parentob);
+
+    this.parentObserver.bind('childAdded',(n){
+      if(Enums.filterItem(n.detail.addedNodes,this.observer.element).length > 0)
+        return this.observer.fireEvent('domAdded',n);
+    });
+
+    this.parentObserver.bind('childRemoved',(n){
+      if(Enums.filterItem(n.detail.removedNodes,this.observer.element).length > 0)
+        return this.observer.fireEvent('domRemoved',n);
+    });
+  }
+
+  void observeRoot(Map a,[Function n]){
+    this.rootObserver.observe(this.root,a,n);
+  }
+
+  void observeParent(html.Element p,Map a,[Function n]){
+    this.parentObserver.observe(p,a,n);
+    if(Valids.exist(n)) return n(this.root,p);
+    return p.append(this.root);
+  }
+
+  ElementObservers get observer => this.rootObserver;
+
+  void bind(String name,Function n) => this.observer.bind(name,n);
+  void bindOnce(String name,Function n) => this.observer.bindOnce(name,n);
+  void unbind(String name,Function n) => this.observer.unbind(name,n);
+  void unbindOnce(String name,Function n) => this.observer.unbindOnce(name,n);
+  void bindWhenDone(String nm,Function n) => this.observer.bindWhenDone(nm,n);
+  void unbindWhenDone(String nm,Function n) => this.observer.unbindWhenDone(nm,n);
+
+  Function get addEvent => this.observer.addEvent;
+  Function get removeEvent => this.observer.removeEvent;
+  Function get fireEvent => this.observer.fireEvent;
+  Function get events => this.observer.getEvent;
+
+}
+
 class ElementObservers extends EventHandler{
 	DistributedObserver dobs;
 	DistributedManager observer;
-	DistributedManager parentObserver;
 	html.Element element;
 
 	static create(e) => new ElementObservers(e);
 
 	ElementObservers(this.dobs){
-		this.observer = DistributedManager.create(this.dobs);
-		this.parentObserver = DistributedManager.create(this.dobs); 
-
-		this.observer.addHook('domReady');
-		this.observer.addHook('domAdded');
-		this.observer.addHook('domRemoved');
-		this.observer.addHook('parentRemoved');
-		this.observer.addHook('parentAdded');
-
-		this.parentObserver.bindHook('childAdded',(n){
-			// n = n.detail;
-			if(Enums.filterItem(n.detail.addedNodes,this.element).length > 0)
-				return this.observer.fireHook('domAdded',n);
-		});
-
-		this.parentObserver.bindHook('childRemoved',(n){
-			// n = n.detail;
-			if(Enums.filterItem(n.detail.removedNodes,this.element).length > 0)
-				return this.observer.fireHook('domRemoved',n);
-		});
-
+          this.observer = DistributedManager.create(this.dobs);
+          this.observer.addHook('domReady');
+          this.observer.addHook('domAdded');
+          this.observer.addHook('domRemoved');
 	}
 
 	void destroy(){
 		this.dobs.destroy();
 		this.observer.destroy();
-		this.parentObserver.destroy();
 		this.element = null;
 	}
 
@@ -638,37 +833,18 @@ class ElementObservers extends EventHandler{
 	}
 
 	void removeEvent(String n){
-		this.observer.removeHook(n);
+            this.observer.removeHook(n);
 	}
 
 	void fireEvent(String n,dynamic a){
-		this.observer.fireHook(n,a);
+            this.observer.fireHook(n,a);
 	}
 
 	dynamic getEvent(String n) => this.observer.getHook(n);
 
-	void observeElement(html.Element e,[Map a]){
-		this.element = e;
-		this.observer.observe(this.element,a);
-	}
-
-	void useParent(html.Element parent,[Map a,Function domInsertion(r,e)]){
-		this.parentObserver.observe(parent,a);
-		if(Valids.notExist(domInsertion)){
-			if(!Valids.match(this.element.parent,parent)) return parent.append(this.element);
-			this.fireEvent('domAdded',this.element);
-			return null;
-		};
-		return domInsertion(this.element,parent);
-	}
-
-	void observe(html.Element e,{
-          html.Element parent: null, 
-          Map elemOptions:null, 
-          Map parentOptions:null,
-          Function insert:null}){
-		this.observeElement(e,elemOptions);
-		if(Valids.exist(parent)) this.useParent(parent,parentOptions,insert);
+        void observe(html.Element e,Map elemOptions,[Function insert]){
+          this.element = e;
+          this.observer.observe(this.element,elemOptions);
 	}
 
 	void bind(String name,Function n) => this.observer.bindHook(name,n);

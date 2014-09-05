@@ -7,14 +7,14 @@ void main(){
 
 	var body = window.document.body;
 	//binds to the root of the dom i.e window.document
-	var tag = Tag.create('badge',Taggables.core);
+	var tag = Tag.create('badge');
 
 	tag.bind('domAdded',(e){ print('am-ready'); });
 	tag.bind('domRemoved',(e){ print('am-dead'); });
 	tag.bind('attributeChange',(e){ print('attrchange $e'); });
 	tag.bind('attributeRemoved',(e){ print('attrrm $e'); });
 
-	var dag = Tag.create('scrotter',Taggables.core);
+	var dag = Tag.create('scrotter');
 
 	dag.bind('domAdded',(e){ print('scrot-ready'); });
 	dag.bind('domRemoved',(e){ print('scrot-dead'); });
