@@ -293,6 +293,7 @@ class AttrStore extends SingleStore{
       var message = m['message'],node = m['node'];
       if(Valids.match(message,selector) || 
         node.attributes.containsKey(selector) || 
+        node.matches(selector) ||
         this.house.hasTag(node)) return true;
       return false;
     });
