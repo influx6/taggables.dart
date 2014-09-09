@@ -4,11 +4,15 @@ packages:
   bass:
     description: bass
     source: hosted
-    version: "0.1.0"
+    version: "0.1.2"
   browser:
     description: browser
     source: hosted
     version: "0.10.0+2"
+  dispatch:
+    description: dispatch
+    source: hosted
+    version: "0.0.7"
   ds:
     description: ds
     source: hosted
@@ -16,7 +20,7 @@ packages:
   hub:
     description: hub
     source: hosted
-    version: "0.10.4"
+    version: "0.10.9"
   path:
     description: path
     source: hosted
@@ -28,4 +32,4 @@ packages:
   streamable:
     description: streamable
     source: hosted
-    version: "0.3.8"
+    version: "0.4.0"
