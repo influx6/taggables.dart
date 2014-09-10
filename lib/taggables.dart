@@ -535,8 +535,8 @@ class Tag extends DualObservers{
 
   void delegateAtoms(DisplayHook hk){
     if(!this._active) return null;
-    if(this.atomtimer.isCompleted) return null;
-     this.atomtimer.complete(hk.scheduleEvery(this.ms,([ms]){
+    if(this._atomtimer.isCompleted) return null;
+     this._atomtimer.complete(hk.scheduleEvery(this.ms,([ms]){
        this.atomics.onAll((v,k) => k.checkAtomics());
      }));
   }
