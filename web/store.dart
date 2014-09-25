@@ -7,13 +7,12 @@ import 'package:taggables/taggables.dart';
 void main(){
 
   Core.register('atoms','atom',(t){
-    
     t.css({
       'background': 'red',
       'width':'100%',
       'height':'100%'
     });
-     t.init();
+    t.init();
   });
 
   var doc = window.document;
@@ -31,5 +30,6 @@ void main(){
   attr.removes.on(Funcs.tag('attr-removed to'));
 
   watch.init();
-
+  store.init();
+  attr.init();
 }

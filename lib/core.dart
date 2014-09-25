@@ -20,7 +20,7 @@ class TagNS{
           return f;
 	}
 
-	void register(String tag,Function n(Tag g,Function n)){
+	void register(String tag,Function n(Tag g)){
 		this.blueprints.add(tag.toLowerCase(),n);
 	}
 
@@ -447,7 +447,7 @@ class DualObservers extends EventContract{
   ElementObservers rootObserver;
   ElementObservers parentObserver;
 
-  DualObservers([DistributedObservers childob,DistributedObservers parentob]){
+  DualObservers([DistributedObserver childob,DistributedObserver parentob]){
 
     childob = Funcs.switchUnless(childob,DistributedObserver.create());
     parentob = Funcs.switchUnless(parentob,DistributedObserver.create());

@@ -2,9 +2,11 @@
 # See http://pub.dartlang.org/doc/glossary.html#lockfile
 packages:
   bass:
-    description: bass
-    source: hosted
-    version: "0.1.2"
+    description:
+      path: "../bass"
+      relative: true
+    source: path
+    version: "0.1.3"
   browser:
     description: browser
     source: hosted
@@ -12,15 +14,17 @@ packages:
   dispatch:
     description: dispatch
     source: hosted
-    version: "0.0.7"
+    version: "0.0.8"
   ds:
     description: ds
     source: hosted
     version: "0.4.3"
   hub:
-    description: hub
-    source: hosted
-    version: "0.10.9"
+    description:
+      path: "../hub"
+      relative: true
+    source: path
+    version: "0.12.2"
   path:
     description: path
     source: hosted

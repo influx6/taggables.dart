@@ -28,11 +28,32 @@ final Bind = (Function fn,[html.Element n,d]){
   return fn(rg);
 };
 
+class DispatchBox{
+  final String tag,attr;
+  final StoreDispatcher dispatch;
+  TagStore tags;
+  AttrStore attrs;
+  DualBind bind;
+
+  static create(t,a,d) => new DispatchBox(t,a,d);
+  DispatchBox(this.tag,this.attr,this.dispatch){
+    this.tags = this.dispatch.tagStore(this.tag);
+    this.attrs = this.dispatch.attrStore(this.attr);
+    this.bind = StoreDispatcher.Bind(this.tag,this.tags,this.attrs);
+  }
+
+  void init(){
+    this.dispatch.init();
+    this.tags.init();
+    this.attrs.init();
+  }
+}
+
 class StoreDispatcher extends Dispatch{
     final MapDecorator tags = new MapDecorator<String,TagStore>();
     final MapDecorator attrs = new MapDecorator<String,AttrStore>();
     final MapDecorator options = MapDecorator.useMap(TagUtil.observerDefaults);
-    final Switch _active = Switch.create();
+    final Switch _onswitch = Switch.create();
     html.Element root;
     DisplayHook display;
     ElementObservers observer;
@@ -45,6 +66,10 @@ class StoreDispatcher extends Dispatch{
       'attribute':2,
       'attributeRemoved':3
     });
+
+    static Box(String tagName,String attrAlias,StoreDispatcher d){
+      return DispatchBox.create(tagName,attrAlias,d);
+    }
 
     static DualBind Bind(String f,TagStore tag,AttrStore attr,[String ns]){
       var binder = DualBind.create((bd){
@@ -81,7 +106,6 @@ class StoreDispatcher extends Dispatch{
     static create(r,[d,a,n]) => new StoreDispatcher(r,d,a,n);
 
     StoreDispatcher(this.root,[DistributedObserver d,bool attr,bool nodes]): super(){
-      this._active.switchOn();
       this.display = DisplayHook.create(html.window);
       this.observer = ElementObservers.create(Valids.exist(d) ? d : DistributedObserver.create());
       this.parentHook = ElementBindings.create();
@@ -121,7 +145,7 @@ class StoreDispatcher extends Dispatch{
           var nodes = e.detail.addedNodes;
           nodes.forEach((f){
             if(f is! html.Element) return null;
-            var name = f.tagName;
+            var name = f.tagName.toLowerCase();
             this.dispatch({
               'message':name,
               'action': StoreDispatcher.actions.get('added'),
@@ -134,7 +158,7 @@ class StoreDispatcher extends Dispatch{
           var nodes = e.detail.removedNodes;
           nodes.forEach((f){
             if(f is! html.Element) return null;
-            var name = f.tagName;
+            var name = f.tagName.toLowerCase();
             this.dispatch({
               'message':name,
               'action': StoreDispatcher.actions.get('removed'),
@@ -156,9 +180,10 @@ class StoreDispatcher extends Dispatch{
 
     }
 
-    bool get isActive => this._active.on();
+    bool get isOn => this._onswitch.on();
 
     void init(){
+      if(this.isOn) return null;
       this.observer.observe(this.root,this.options.core);
       if(Valids.exist(this.root.parent)) this.parentHook.bindTo(this.root.parent);
       this.enable();
@@ -172,6 +197,7 @@ class StoreDispatcher extends Dispatch{
     void enable(){
       this.observer.fireEvent('domAdded',this.root);
       this.display.run();
+      this._onswitch.switchOn();
     }
 
     void destroy(){
@@ -180,7 +206,7 @@ class StoreDispatcher extends Dispatch{
       this.observer.destroy();
       this.parentHook.destroy();
       super.destroy();
-      this._active.switchOff();
+      this._onswitch.switchOff();
     }
 
     dynamic get bind => this.observer.bind;
@@ -195,7 +221,6 @@ class StoreDispatcher extends Dispatch{
     dynamic get events => this.observer.getEvent;
 
     TagStore tagStore(String tg){
-      if(!this.isActive) return null;
       if(this.tags.has(tg)) return this.stores.get(tg);
       var store = TagStore.create(tg,this);
       this.tags.add(tg,store);
@@ -203,7 +228,6 @@ class StoreDispatcher extends Dispatch{
     }
 
     AttrStore attrStore(String tg){
-      if(!this.isActive) return null;
       if(this.attrs.has(tg)) return this.attrs.get(tg);
       var attr = AttrStore.create(tg,this);
       this.attrs.add(tg,attr);
@@ -250,17 +274,14 @@ class TagHouse extends StoreHouse{
 
 class AttrHouse extends StoreHouse{
 
-
   static create(s) => new AttrHouse(s);
   AttrHouse(AttrStore store): super(store);
 
   Future<Tag> delegateAdd(html.Element tag){
     var taghash = tag.hashCode.toString();
-    if(this.storehouse.has(taghash)) return new Future.error('Already Added!');
-    return new Future((){
-        this.storehouse.add(taghash,tag);
-        return tag;
-    });
+    if(this.hasTag(tag)) return new Future.error('Already Added!');
+    this.storehouse.add(taghash,tag);
+    return new Future.value(tag);
   }
 
   Future<Tag> delegateRemove(html.Element tag){
@@ -277,6 +298,7 @@ class AttrHouse extends StoreHouse{
 }
 
 class AttrStore extends SingleStore{
+  final Switch _active = Switch.create();
   String selector;
   DispatchWatcher tagwatch;
   AttrHouse house;
@@ -299,8 +321,17 @@ class AttrStore extends SingleStore{
     });
 
     this.tagwatch.listen(this.delegateRequest);
+  }
+
+  bool get isActive => this._active.on();
+
+  void init(){
+    if(this.isActive) return null;
     //tell them to send to us all related tags
-     var types = this.dispatch.root.querySelectorAll(this.selector);
+    var sel = "${[this.selector]}";
+    var types = this.dispatch.root.querySelectorAll(this.selector);
+    if(types.isEmpty) types = this.dispatch.root.querySelectorAll(sel);
+  
      types.forEach((f){
       this.tagwatch.send({
         'message':this.selector,
@@ -310,6 +341,8 @@ class AttrStore extends SingleStore{
         'tag':f.tagName.toLowerCase()
       });
      });
+
+     this._active.switchOn();
   }
 
   void delegate(Map v){ return null; }
@@ -323,6 +356,7 @@ class AttrStore extends SingleStore{
       var action = m['action'],node = m['node'],attrs = node.attributes;
 
       if(action == attr || (action == addbit && (node.matches(this.selector) || attrs.containsKey(this.selector)))){
+        if(this.house.hasTag(m['node'])) return null;
         this.house.delegateAdd(m['node'])
         .then((n){
           this.adds.emit(m);
@@ -353,6 +387,7 @@ class AttrStore extends SingleStore{
 }
 
 class TagStore extends SingleStore{
+  final Switch _on = Switch.create();
   String tagName;
   TagRegistry registry;
   DispatchWatcher tagwatch;
@@ -360,14 +395,26 @@ class TagStore extends SingleStore{
 
   static create(ts,d,[t]) => new TagStore(ts,d,t);
 
-  TagStore(String tagName,StoreDispatcher dp,[TagRegistry t]): super(dp), tagwatch = dp.watch(tagName){
+  TagStore(String tagName,StoreDispatcher dp,[TagRegistry t]): super(dp){
     this.tagName  = tagName.toLowerCase();
     this.registry = Funcs.switchUnless(t,TagUtil.core);
     this.house = TagHouse.create(this);
+    this.tagwatch = this.dispatch.watch(this.tagName);
 
     this.tagwatch.listen(this.delegateRequest);
     //tell them to send to us all related tags
-     var types = this.dispatch.root.querySelectorAll(this.tagName);
+  }
+  
+  bool get isOn => this._on.on();
+
+  void init(){
+    if(this.isOn) return null;
+    this.delegateChildren(this.dispatch.root);
+    this._on.switchOn();
+  }
+
+  void delegateChildren(elem){
+     var types = elem.querySelectorAll(this.tagName);
      types.forEach((f){
       this.tagwatch.send({
         'message':this.tagName,
@@ -399,6 +446,7 @@ class TagStore extends SingleStore{
         .catchError((e){});
       }
   }
+
 }
 
 class Tag extends DualObservers{
@@ -413,7 +461,7 @@ class Tag extends DualObservers{
   html.Element precontent;
   EventsFactory factories,shadowfactories;
   MapDecorator atomics,sd,options;
-  QueryShell $,$$;
+  QueryShell $;
   CSS cssheet;
   SVG ink;
   int ms = 300;
@@ -429,12 +477,11 @@ class Tag extends DualObservers{
     this.atomics = MapDecorator.create();
     this.shadow = new html.DocumentFragment();
     this.style = new html.StyleElement();
-    this.precontent = new html.Element.tag('content');
-    this.precontent.children.addAll(this.root.children);
+    /*this.precontent = new html.Element.tag('content');*/
+    /*this.precontent.children.addAll(this.root.children);*/
     this.options = MapDecorator.useMap(TagUtil.observerDefaults);
 
     this.$ = QueryShell.create(this.root);
-    this.$$ = QueryShell.create(this.shadow);
     this.cssheet = CSS.create();
     this.ink =  SVG.create();
 
@@ -447,7 +494,6 @@ class Tag extends DualObservers{
     this.style.attributes['type'] = 'text/css';
     this.style.attributes['id'] = Funcs.combineStrings(id,'-style');
     this.style.dataset['tag-name'] = this.tagName;
-
 
     var head = this.root.ownerDocument.query('head');
     head.insertBefore(this.style,head.firstChild);
@@ -530,7 +576,7 @@ class Tag extends DualObservers{
         this.atom('parentCSS').changeHandler(this.$.parent.style);
     });
 
-    this.shadow.setInnerHtml(this.precontent.innerHtml);
+    /*this.shadow.setInnerHtml(this.precontent.innerHtml);*/
   }
 
   void delegateAtoms(DisplayHook hk){
@@ -652,7 +698,6 @@ class Tag extends DualObservers{
     this.cssheet.destroy();
     this.ink.destroy();
     this.$.destroy();
-    this.$$.destroy();
     this.root = this.cssheet = this.ink = null;
   }
 
