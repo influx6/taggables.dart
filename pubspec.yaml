@@ -4,9 +4,9 @@ author: Alexander Adeniyin Ewetumo <trinoxf@gmail.com>
 homepage: http://github.com/influx6/taggables.dart
 description: a lightweigt beautiful web component approach
 dependencies:
-    browser: any
-    dispatch: any
-    hub: any
-    bass: any
-    streamable: any
-    requestful: any
+    browser: ">=0.10.0+1 <0.10.0+2"
+    dispatch: ">=0.1.1 <0.1.2"
+    hub: ">=0.12.1 <0.12.2"
+    bass: ">=0.1.4 <0.1.5"
+    streamable: ">=0.4.0 <0.4.1"
+    requestful: ">=0.0.3 <0.0.4"
